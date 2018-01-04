@@ -38,6 +38,11 @@ class Node {
 	has $.last-child is rw;
 }
 
+class Node::Bold is Node {
+	method html-start { '<b>' }
+	method html-end { '</b>' }
+}
+
 class Node::Code is Node {
 	method html-start { '<code>' }
 	method html-end { '</code>' }
@@ -53,14 +58,32 @@ class Node::Document is Node {
 	method html-end { '</div>' }
 }
 
+class Node::Entity is Node {
+	has $.contents;
+	method html-start { $.contents }
+	method html-end { '' }
+}
+
 class Node::Item is Node {
 	method html-start { '<li>' }
 	method html-end { '</li>' }
 }
 
+class Node::Link is Node {
+	has $.url;
+
+	method html-start { qq[<a href="{$.url}">] }
+	method html-end { '</ul>' }
+}
+
 class Node::List is Node {
 	method html-start { '<ul>' }
 	method html-end { '</ul>' }
+}
+
+class Node::Paragraph is Node {
+	method html-start { '<p>' }
+	method html-end { '</p>' }
 }
 
 class Node::Section is Node {
@@ -69,9 +92,11 @@ class Node::Section is Node {
 	method html-end { qq[</section>] }
 }
 
-class Node::Paragraph is Node {
-	method html-start { '<p>' }
-	method html-end { '</p>' }
+# XXX What is this?...
+class Node::Reference is Node {
+	has $.title;
+	method html-start { qq[<var>] }
+	method html-end { qq[</var>] }
 }
 
 class Node::Heading is Node {
@@ -127,7 +152,8 @@ class Pod::To::HTMLBody {
 	}
 
 	method render( $pod ) {
-		return self.pod-to-tree( $pod );
+		my $tree = self.pod-to-tree( $pod );
+		return self.tree-to-html( $tree );
 	}
 
 	multi method to-node( $pod ) {
@@ -213,8 +239,67 @@ class Pod::To::HTMLBody {
 
 	multi method to-node( Pod::FormattingCode $pod ) {
 		given $pod.type {
+			when 'B' {
+				my $node = Node::Bold.new;
+				for @( $pod.contents ) -> $element {
+					my $child = self.to-node( $element );
+					$child.parent = $node;
+					if $node.first-child {
+						$node.last-child.next-sibling = $child;
+						$child.previous-sibling = $node.last-child;
+						$node.last-child = $child;
+					}
+					else {
+						$node.first-child = $child;
+						$node.last-child = $child;
+					}
+				}
+				$node;
+			}
 			when 'C' {
 				my $node = Node::Code.new;
+				for @( $pod.contents ) -> $element {
+					my $child = self.to-node( $element );
+					$child.parent = $node;
+					if $node.first-child {
+						$node.last-child.next-sibling = $child;
+						$child.previous-sibling = $node.last-child;
+						$node.last-child = $child;
+					}
+					else {
+						$node.first-child = $child;
+						$node.last-child = $child;
+					}
+				}
+				$node;
+			}
+			when 'E' {
+				# XXX Need to escape this properly
+				my $node = Node::Entity.new(
+					:contents( $pod.contents )
+				);
+				$node;
+			}
+			when 'L' {
+				my $node = Node::Link.new;
+				$node.url = $pod.meta;
+				for @( $pod.contents ) -> $element {
+					my $child = self.to-node( $element );
+					$child.parent = $node;
+					if $node.first-child {
+						$node.last-child.next-sibling = $child;
+						$child.previous-sibling = $node.last-child;
+						$node.last-child = $child;
+					}
+					else {
+						$node.first-child = $child;
+						$node.last-child = $child;
+					}
+				}
+				$node;
+			}
+			when 'R' {
+				my $node = Node::Reference.new;
 				for @( $pod.contents ) -> $element {
 					my $child = self.to-node( $element );
 					$child.parent = $node;
@@ -373,52 +458,12 @@ class Pod::To::HTMLBody {
 		$node;
 	}
 
-#`(
-	sub list-extent( $start ) {
-		my $end = $start;
-		while $end.next-sibling ~~ Node::Item {
-			$end = $end.next-sibling;
-		}
-		$end;
-	}
-
-	sub new-Node-List( $start ) {
-		my $node = Node::List.new;
-		$start.parent = $node;
-		my $end = $start;
-		while $end.next-sibling ~~ Node::Item {
-			$end.parent = $node;
-			$end = $end.next-sibling;
-		}
-		$node.first-child = $start;
-		$node.last-child = $end;
-		$start.previous-sibling = Nil;
-		$end.next-sibling = Nil;
-		$node;
-	}
-
-	sub build-list( $node ) {
-		my $start = $node.first-child;
-		while $start {
-			if $start ~~ Node::Item {
-				my $end = list-extent( $start );
-my $new-list-previous = $start.previous-sibling;
-my $new-list-next = $end.next-sibling;
-				my $list = new-Node-List( $start );
-$list.previous-sibling = $new-list-previous;
-$list.next-sibling = $new-list-next;
-$new-list-previous.next-sibling = $list if $new-list-previous and $new-list-previous.next-sibling;
-$new-list-next.previous-sibling = $list if $new-list-next and $new-list-next.previous-sibling;
-			}
-			build-list( $start );
-			$start = $start.next-sibling;
-		}
-	}
-)
-
 	method pod-to-tree( $pod ) {
 		my $tree = self.to-node( $pod );
-#		build-list($tree);
+		return $tree;
+	}
+
+	method tree-to-html( $tree ) {
 		return walk($tree);
 	}
 }
