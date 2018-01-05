@@ -5,15 +5,813 @@ use Test;
 my $pod-counter = 0;
 my $r;
 
+subtest 'paragraphs', {
+
 =begin pod
 Lorem ipsum
 =end pod
 
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<div>'
+			'<p>' 'Lorem ipsum' '</p>'
+		'</div>'
+	/, 'simple paragraph';
+
+=begin pod
+
+someone accidentally left a space
+ 
+between these two paragraphs
+
+=end pod
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<p>' 'someone accidentally left a space' '</p>'
+		'<p>' 'between these two paragraphs' '</p>'
+	/, 'paragraph break';
+
+=for foo
+some text
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<section>'
+			'<h1>' 'foo' '</h1>'
+			'<p>' 'some text' '</p>'
+		'</section>'
+	/, 'paragraph with body';
+
+=for foo
+some
+spaced   text
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<section>'
+			'<h1>' 'foo' '</h1>'
+			'<p>' 'some spaced text' '</p>'
+		'</section>'
+	/, 'spacing';
+};
+
+subtest 'section', {
+=begin foo
+=end foo
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<section>'
+			'<h1>' 'foo' '</h1>'
+		'</section>'
+	/, 'section';
+
+=begin foo
+Some content
+=end foo
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<section>'
+			'<h1>' 'foo' '</h1>'
+			'<p>' 'Some content' '</p>'
+		'</section>'
+	/, 'section wih content';
+
+=begin foo
+Some content
+over two lines
+=end foo
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<section>'
+			'<h1>' 'foo' '</h1>'
+			'<p>' 'Some content over two lines' '</p>'
+		'</section>'
+	/, 'section wih content over two lines';
+
+=begin foo
+paragraph one
+
+paragraph
+two
+=end foo
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<section>'
+			'<h1>' 'foo' '</h1>'
+			'<p>' 'paragraph one' '</p>'
+			'<p>' 'paragraph two' '</p>'
+		'</section>'
+	/, 'two paragraphs';
+
+=begin something
+    =begin somethingelse
+    toot tooot!
+    =end somethingelse
+=end something
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /:s
+		'<section>'
+			'<h1>' 'something' '</h1>'
+			'<section>'
+				'<h1>' 'somethingelse' '</h1>'
+				'<p>' 'toot tooot!' '</p>'
+			'</section>'
+		'</section>'
+	/, 'nested section';
+
+=begin foo
+and so,  all  of  the  villages chased
+Albi,   The   Racist  Dragon, into the
+very   cold   and  very  scary    cave
+
+and it was so cold and so scary in
+there,  that  Albi  began  to  cry
+
+    =begin bar
+    Dragon Tears!
+    =end bar
+
+Which, as we all know...
+
+    =begin bar
+    Turn into Jelly Beans!
+    =end bar
+=end foo
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<section>'
+			'<h1>' 'foo' '</h1>'
+			'<p>' 'and so, all of the villages chased Albi, The Racist Dragon, into the very cold and very scary cave' '</p>'
+			'<p>' 'and it was so cold and so scary in there, that Albi began to cry' '</p>'
+			'<section>'
+				'<h1>' 'bar' '</h1>'
+				'<p>' 'Dragon Tears!' '</p>'
+			'</section>'
+			'<p>' 'Which, as we all know...' '</p>'
+			'<section>'
+				'<h1>' 'bar' '</h1>'
+				'<p>' 'Turn into Jelly Beans!' '</p>'
+			'</section>'
+		'</section>'
+	/, 'Mixed sections and paragraphs';
+
+=begin something
+    =begin somethingelse
+    toot tooot!
+    =end somethingelse
+=end something
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<section>'
+			'<h1>' 'something' '</h1>'
+			'<section>'
+				'<h1>' 'somethingelse' '</h1>'
+				'<p>' 'toot tooot!' '</p>'
+			'</section>'
+		'</section>'
+	/, 'regression test';
+
+=begin kwid
+
+= DESCRIPTION
+bla bla
+
+foo
+=end kwid
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<section>'
+			'<h1>' 'kwid' '</h1>'
+			'<p>' '= DESCRIPTION bla bla' '</p>'
+			'<p>' 'foo' '</p>'
+		'</section>'
+	/, 'broken meta tag';
+
+=begin more-discussion-needed
+
+XXX: chop(@array) should return an array of chopped strings?
+XXX: chop(%has)   should return a  hash  of chopped strings?
+
+=end more-discussion-needed
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<section>'
+			'<h1>' 'more-discussion-needed' '</h1>'
+			'<p>' 'XXX: chop(@array) should return an array of chopped strings? XXX: chop(%has) should return a hash of chopped strings?' '</p>'
+		'</section>'
+	/, 'playing with line breaks';
+
+=for foo
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<section>'
+			'<h1>' 'foo' '</h1>'
+		'</section>'
+	/, 'hanging section';
+
+# tests without Albi would still be tests, but definitely very, very sad
+# also, Albi without paragraph blocks wouldn't be the happiest dragon
+# either
+=begin foo
+and so,  all  of  the  villages chased
+Albi,   The   Racist  Dragon, into the
+very   cold   and  very  scary    cave
+
+and it was so cold and so scary in
+there,  that  Albi  began  to  cry
+
+    =for bar
+    Dragon Tears!
+
+Which, as we all know...
+
+    =for bar
+    Turn into Jelly Beans!
+=end foo
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<section>'
+			'<h1>' 'foo' '</h1>'
+			'<p>' 'and so, all of the villages chased Albi, The Racist Dragon, into the very cold and very scary cave' '</p>'
+			'<p>' 'and it was so cold and so scary in there, that Albi began to cry' '</p>'
+			'<section>'
+				'<h1>' 'bar' '</h1>'
+				'<p>' 'Dragon Tears!' '</p>'
+			'</section>'
+			'<p>' 'Which, as we all know...' '</p>'
+			'<section>'
+				'<h1>' 'bar' '</h1>'
+				'<p>' 'Turn into Jelly Beans!' '</p>'
+			'</section>'
+		'</section>'
+	/, 'nested blocks';
+
+=foo
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<section>'
+			'<h1>' 'foo' '</h1>'
+		'</section>'
+	/, 'hanging block';
+
+=foo some text
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<section>'
+			'<h1>' 'foo' '</h1>'
+			'<p>' 'some text' '</p>'
+		'</section>'
+	/, 'hanging block with paragraph';
+
+=foo some text
+and some more
+
+# Yes, 'some text' and 'and some more' are in the same paragraph block, no
+# way to know if they've been broken up.
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<section>'
+			'<h1>' 'foo' '</h1>'
+			'<p>' 'some text and some more' '</p>'
+		'</section>'
+	/, 'hanging block with multi-line paragraph';
+
+=begin foo
+and so,  all  of  the  villages chased
+Albi,   The   Racist  Dragon, into the
+very   cold   and  very  scary    cave
+
+and it was so cold and so scary in
+there,  that  Albi  began  to  cry
+
+    =bold Dragon Tears!
+
+Which, as we all know...
+
+    =bold Turn
+          into
+          Jelly
+          Beans!
+=end foo
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<section>'
+			'<h1>' 'foo' '</h1>'
+			'<p>' 'and so, all of the villages chased Albi, The Racist Dragon, into the very cold and very scary cave' '</p>'
+			'<p>' 'and it was so cold and so scary in there, that Albi began to cry' '</p>'
+			'<section>'
+				'<h1>' 'bold' '</h1>'
+				'<p>' 'Dragon Tears!' '</p>'
+			'</section>'
+			'<p>' 'Which, as we all know...' '</p>'
+			'<section>'
+				'<h1>' 'bold' '</h1>'
+				'<p>' 'Turn into Jelly Beans!' '</p>'
+			'</section>'
+		'</section>'
+	/, 'nested paragraphs';
+
+# from S26
+=table_not
+    Constants 1
+    Variables 10
+    Subroutines 33
+    Everything else 57
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<section>'
+			'<h1>' 'table_not' '</h1>'
+			'<p>' 'Constants 1 Variables 10 Subroutines 33 Everything else 57' '</p>'
+		'</section>'
+	/, 'not a table';
+};
+
+subtest 'table', {
+# test fix for RT #124403 - incorrect table parse:
+=table
++-----+----+---+
+|   a | b  | c |
++-----+----+---+
+| foo | 52 | Y |
+| bar | 17 | N |
+|  dz | 9  | Y |
++-----+----+---+
+
+	# Check out the raw pod if you don't believe me, this is a set of single
+	# rows.
+	#
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<table>'
+			'<tr>' '<td>' '+-----+----+---+' '</td>' '</tr>'
+			'<tr>' '<td>' '| a | b | c |'    '</td>' '</tr>'
+			'<tr>' '<td>' '+-----+----+---+' '</td>' '</tr>'
+			'<tr>' '<td>' '| foo | 52 | Y |' '</td>' '</tr>'
+			'<tr>' '<td>' '| bar | 17 | N |' '</td>' '</tr>'
+			'<tr>' '<td>' '| dz | 9 | Y |'   '</td>' '</tr>'
+			'<tr>' '<td>' '+-----+----+---+' '</td>' '</tr>'
+		'</table>'
+	/, 'single rows';
+
+# test fix for issue RT #129862
+# uneven rows
+=begin table
+a | b | c
+l | m | n
+x | y
+=end table
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<table>'
+			'<tr>'
+				'<td>' 'a' '</td>'
+				'<td>' 'b' '</td>'
+				'<td>' 'c' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' 'l' '</td>'
+				'<td>' 'm' '</td>'
+				'<td>' 'n' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' 'x' '</td>'
+				'<td>' 'y' '</td>'
+			'</tr>'
+		'</table>'
+	/, 'short row';
+
+# test fix for RT #132341
+# also tests fix for RT #129862
+=table
+    X   O
+   ===========
+        X   O
+   ===========
+            X
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<table>'
+			'<tr>'
+				'<td>' 'X' '</td>'
+				'<td>' 'O' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' '</td>'
+				'<td>' 'X' '</td>'
+				'<td>' 'O' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' '</td>'
+				'<td>' '</td>'
+				'<td>' 'X' '</td>'
+			'</tr>'
+		'</table>'
+	/, 'RT #132341 regression';
+
+#`(
+# test fix for RT #132348 (allow inline Z comments)
+# also tests fix for RT #129862
+=begin table
+a | b | c
+l | m | n
+x | y      Z<a comment> Z<another comment>
+=end table
+
 like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<div>'
-		'<p>' 'Lorem ipsum' '</p>'
-	'</div>'
-/, 'simple paragraph';
+1
+/;
+)
+
+# a single column table, no headers
+=begin table
+a
+=end table
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<table>'
+			'<tr>'
+				'<td>' 'a' '</td>'
+			'</tr>'
+		'</table>'
+	/, 'single-cell table';
+
+# a single column table, with header
+=begin table
+b
+-
+a
+=end table
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<table>'
+			'<th>'
+				'<td>' 'b' '</td>'
+			'</th>'
+			'<tr>'
+				'<td>' 'a' '</td>'
+			'</tr>'
+		'</table>'
+	/, 'header';
+
+# test fix for rakudo repo issue #1282:
+# need to handle table cells with char column separators as data
+# example table from <https://docs.perl6.org/language/regexes>
+# WITHOUT the escaped characters (results in an extra, unwanted, incorrect column)
+=begin table
+
+    Operator  |  Meaning
+    ==========+=========
+     +        |  set union
+     |        |  set union
+     &        |  set intersection
+     -        |  set difference (first minus second)
+     ^        |  symmetric set intersection / XOR
+
+=end table
+
+	# XXX '&' needs to be escaped, among others probably.
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<table>'
+			'<th>'
+				'<td>' 'Operator' '</td>'
+				'<td>' 'Meaning' '</td>'
+			'</th>'
+			'<tr>'
+				'<td>' '+' '</td>'
+				'<td>' 'set union' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' '</td>'
+				'<td>' '</td>'
+				'<td>' 'set union' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' '&' '</td>'
+				'<td>' 'set intersection' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' '-' '</td>'
+				'<td>' 'set difference (first minus second)' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' '^' '</td>'
+				'<td>' 'symmetric set intersection / XOR' '</td>'
+			'</tr>'
+		'</table>'
+	/, 'header, entities and gaps';
+
+# WITHOUT the escaped characters and without the non-breaking spaces
+# (results in the desired table)
+=begin table
+
+    Operator  |  Meaning
+    ==========+=========
+    +       |  set union
+    |       |  set union
+    &       |  set intersection
+    -       |  set difference (first minus second)
+    ^       |  symmetric set intersection / XOR
+
+=end table
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<table>'
+			'<th>'
+				'<td>' 'Operator' '</td>'
+				'<td>' 'Meaning' '</td>'
+			'</th>'
+			'<tr>'
+				'<td>' '+ &' '</td>'
+				'<td>' 'set union set intersection' '</td>'
+				'<td>' 'set union' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' '^' '</td>'
+				'<td>' 'symmetric set intersection / XOR' '</td>'
+			'</tr>'
+		'</table>'
+	/, 'escaped characters';
+
+# WITH the escaped characters (results in the desired table)
+=begin table
+
+    Operator  |  Meaning
+    ==========+=========
+     \+        |  set union
+     \|        |  set union
+     &        |  set intersection
+     -        |  set difference (first minus second)
+     ^        |  symmetric set intersection / XOR
+
+=end table
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<table>'
+			'<th>'
+				'<td>' 'Operator' '</td>'
+				'<td>' 'Meaning' '</td>'
+			'</th>'
+			'<tr>'
+				'<td>' '\\+' '</td>'
+				'<td>' 'set union' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' '\\|' '</td>'
+				'<td>' 'set union' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' '&' '</td>'
+				'<td>' 'set intersection' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' '-' '</td>'
+				'<td>' 'set difference (first minus second)' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' '^' '</td>'
+				'<td>' 'symmetric set intersection / XOR' '</td>'
+			'</tr>'
+		'</table>'
+	/, 'escaped, and some non-breaking spaces';
+
+# WITH the escaped characters but without the non-breaking spaces
+# (results in the desired table)
+
+=begin table
+
+    Operator  |  Meaning
+    ==========+=========
+    \+       |  set union
+    \|       |  set union
+    &       |  set intersection
+    -       |  set difference (first minus second)
+    ^       |  symmetric set intersection / XOR
+
+=end table
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<table>'
+			'<th>'
+				'<td>' 'Operator' '</td>'
+				'<td>' 'Meaning' '</td>'
+			'</th>'
+			'<tr>'
+				'<td>' '\\+ \\| &' '</td>'
+				'<td>' 'set union set union set intersection' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' '^' '</td>'
+				'<td>' 'symmetric set intersection / XOR' '</td>'
+			'</tr>'
+		'</table>'
+	/, 'escaped, no non-breaking spaces';
+
+=begin table
+        The Shoveller   Eddie Stevens     King Arthur's singing shovel
+        Blue Raja       Geoffrey Smith    Master of cutlery
+        Mr Furious      Roy Orson         Ticking time bomb of fury
+        The Bowler      Carol Pinnsler    Haunted bowling ball
+=end table
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<table>'
+			'<tr>'
+				'<td>' 'The Shoveller' '</td>'
+				'<td>' 'Eddie Stevens' '</td>'
+				'<td>' 'King Arthur\'s singing shovel' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' 'Blue Raja' '</td>'
+				'<td>' 'Geoffrey Smith' '</td>'
+				'<td>' 'Master of cutlery' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' 'Mr Furious' '</td>'
+				'<td>' 'Roy Orson' '</td>'
+				'<td>' 'Ticking time bomb of fury' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' 'The Bowler' '</td>'
+				'<td>' 'Carol Pinnsler' '</td>'
+				'<td>' 'Haunted bowling ball' '</td>'
+			'</tr>'
+		'</table>'
+	/, 'simple table';
+
+#`(
+=table
+    Constants           1
+    Variables           10
+    Subroutines         33
+    Everything else     57
+
+like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+1
+/;
+)
+
+=for table
+    mouse    | mice
+    horse    | horses
+    elephant | elephants
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<table>'
+			'<tr>'
+				'<td>' 'mouse' '</td>'
+				'<td>' 'mice' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' 'horse' '</td>'
+				'<td>' 'horses' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' 'elephant' '</td>'
+				'<td>' 'elephants' '</td>'
+			'</tr>'
+		'</table>'
+	/, 'two-column table, no header';
+
+=table
+    Animal | Legs |    Eats
+    =======================
+    Zebra  +   4  + Cookies
+    Human  +   2  +   Pizza
+    Shark  +   0  +    Fish
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<table>'
+			'<th>'
+				'<td>' 'Animal' '</td>'
+				'<td>' 'Legs' '</td>'
+				'<td>' 'Eats' '</td>'
+			'</th>'
+			'<tr>'
+				'<td>' 'Zebra' '</td>'
+				'<td>' '4' '</td>'
+				'<td>' 'Cookies' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' 'Human' '</td>'
+				'<td>' '2' '</td>'
+				'<td>' 'Pizza' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' 'Shark' '</td>'
+				'<td>' '0' '</td>'
+				'<td>' 'Fish' '</td>'
+			'</tr>'
+		'</table>'
+	/, 'hanging table';
+
+=table
+        Superhero     | Secret          |
+                      | Identity        | Superpower
+        ==============|=================|================================
+        The Shoveller | Eddie Stevens   | King Arthur's singing shovel
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<table>'
+			'<th>'
+				'<td>' 'Superhero' '</td>'
+				'<td>' 'Secret Identity' '</td>'
+				'<td>' 'Superpower' '</td>'
+			'</th>'
+			'<tr>'
+				'<td>' 'The Shoveller' '</td>'
+				'<td>' 'Eddie Stevens' '</td>'
+				'<td>' "King Arthur's singing shovel" '</td>'
+			'</tr>'
+		'</table>'
+	/, 'hanging table with multiline header';
+
+=begin table
+
+                        Secret
+        Superhero       Identity          Superpower
+        =============   ===============   ===================
+        The Shoveller   Eddie Stevens     King Arthur's
+                                          singing shovel
+
+        Blue Raja       Geoffrey Smith    Master of cutlery
+
+        Mr Furious      Roy Orson         Ticking time bomb
+                                          of fury
+
+        The Bowler      Carol Pinnsler    Haunted bowling ball
+
+=end table
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<table>'
+			'<th>'
+				'<td>' 'Superhero' '</td>'
+				'<td>' 'Secret Identity' '</td>'
+				'<td>' 'Superpower' '</td>'
+			'</th>'
+			'<tr>'
+				'<td>' 'The Shoveller' '</td>'
+				'<td>' 'Eddie Stevens' '</td>'
+				'<td>' "King Arthur's singing shovel" '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' 'Blue Raja' '</td>'
+				'<td>' 'Geoffrey Smith' '</td>'
+				'<td>' 'Master of cutlery' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' 'Mr Furious' '</td>'
+				'<td>' 'Roy Orson' '</td>'
+				'<td>' 'Ticking time bomb of fury' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' 'The Bowler' '</td>'
+				'<td>' 'Carol Pinnsler' '</td>'
+				'<td>' 'Haunted bowling ball' '</td>'
+			'</tr>'
+		'</table>'
+	/, 'table with == separators';
+
+=table
+    X | O |
+   ---+---+---
+      | X | O
+   ---+---+---
+      |   | X
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<table>'
+			'<tr>'
+				'<td>' 'X' '</td>'
+				'<td>' 'O' '</td>'
+				'<td>' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' '</td>'
+				'<td>' 'X' '</td>'
+				'<td>' 'O' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' '</td>'
+				'<td>' '</td>'
+				'<td>' 'X' '</td>'
+			'</tr>'
+		'</table>'
+	/, 'tic-tac-toe with empty squares';
+
+#`(
+# test for:
+#   RT #126740 - Pod::Block::Table node caption property is not populated properly
+# Note that the caption property is just one of the table's %config key/value
+# pairs so any tests for other config keys in a single table are usually the same as testing
+# multiple tables, each for one caption test.
+=begin table :caption<foo> :bar(0)
+
+foo
+bar
+
+=end table
+
+like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+1
+/;
+)
+};
 
 =begin pod
 sample paragraph
@@ -69,165 +867,8 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 	'</div>'
 /, 'paragraph and complex table';
 
-=begin foo
-=end foo
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<section>'
-		'<h1>' 'foo' '</h1>'
-	'</section>'
-/, 'section';
-
-=begin foo
-Some content
-=end foo
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<section>'
-		'<h1>' 'foo' '</h1>'
-		'<p>' 'Some content' '</p>'
-	'</section>'
-/, 'section wih content';
-
-=begin foo
-Some content
-over two lines
-=end foo
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<section>'
-		'<h1>' 'foo' '</h1>'
-		'<p>' 'Some content over two lines' '</p>'
-	'</section>'
-/, 'section wih content over two lines';
-
-=begin foo
-paragraph one
-
-paragraph
-two
-=end foo
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<section>'
-		'<h1>' 'foo' '</h1>'
-		'<p>' 'paragraph one' '</p>'
-		'<p>' 'paragraph two' '</p>'
-	'</section>'
-/, 'two paragraphs';
-
-=begin something
-    =begin somethingelse
-    toot tooot!
-    =end somethingelse
-=end something
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /:s
-	'<section>'
-		'<h1>' 'something' '</h1>'
-		'<section>'
-			'<h1>' 'somethingelse' '</h1>'
-			'<p>' 'toot tooot!' '</p>'
-		'</section>'
-	'</section>'
-/, 'nested section';
-
-=begin foo
-and so,  all  of  the  villages chased
-Albi,   The   Racist  Dragon, into the
-very   cold   and  very  scary    cave
-
-and it was so cold and so scary in
-there,  that  Albi  began  to  cry
-
-    =begin bar
-    Dragon Tears!
-    =end bar
-
-Which, as we all know...
-
-    =begin bar
-    Turn into Jelly Beans!
-    =end bar
-=end foo
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<section>'
-		'<h1>' 'foo' '</h1>'
-		'<p>' 'and so, all of the villages chased Albi, The Racist Dragon, into the very cold and very scary cave' '</p>'
-		'<p>' 'and it was so cold and so scary in there, that Albi began to cry' '</p>'
-		'<section>'
-			'<h1>' 'bar' '</h1>'
-			'<p>' 'Dragon Tears!' '</p>'
-		'</section>'
-		'<p>' 'Which, as we all know...' '</p>'
-		'<section>'
-			'<h1>' 'bar' '</h1>'
-			'<p>' 'Turn into Jelly Beans!' '</p>'
-		'</section>'
-	'</section>'
-/, 'Mixed sections and paragraphs';
-
-=begin something
-    =begin somethingelse
-    toot tooot!
-    =end somethingelse
-=end something
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<section>'
-		'<h1>' 'something' '</h1>'
-		'<section>'
-			'<h1>' 'somethingelse' '</h1>'
-			'<p>' 'toot tooot!' '</p>'
-		'</section>'
-	'</section>'
-/, 'regression test';
-
-=begin pod
-
-someone accidentally left a space
- 
-between these two paragraphs
-
-=end pod
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<p>' 'someone accidentally left a space' '</p>'
-	'<p>' 'between these two paragraphs' '</p>'
-/, 'paragraph break';
-
 # various things which caused the spectest to fail at some point
 
-=begin kwid
-
-= DESCRIPTION
-bla bla
-
-foo
-=end kwid
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<section>'
-		'<h1>' 'kwid' '</h1>'
-		'<p>' '= DESCRIPTION bla bla' '</p>'
-		'<p>' 'foo' '</p>'
-	'</section>'
-/, 'broken meta tag';
-
-=begin more-discussion-needed
-
-XXX: chop(@array) should return an array of chopped strings?
-XXX: chop(%has)   should return a  hash  of chopped strings?
-
-=end more-discussion-needed
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<section>'
-		'<h1>' 'more-discussion-needed' '</h1>'
-		'<p>' 'XXX: chop(@array) should return an array of chopped strings? XXX: chop(%has) should return a hash of chopped strings?' '</p>'
-	'</section>'
-/, 'playing with line breaks';
 
 =begin pod
     =head1 This is a heading block
@@ -261,35 +902,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 		'<p>' 'This is yet another ordinary paragraph, at the first virtual column set by the previous directive' '</p>'
 	'</div>'
 /, 'headings with indentations';
-
-=for foo
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<section>'
-		'<h1>' 'foo' '</h1>'
-	'</section>'
-/, 'hanging block';
-
-=for foo
-some text
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<section>'
-		'<h1>' 'foo' '</h1>'
-		'<p>' 'some text' '</p>'
-	'</section>'
-/, 'paragraph with body';
-
-=for foo
-some
-spaced   text
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<section>'
-		'<h1>' 'foo' '</h1>'
-		'<p>' 'some spaced text' '</p>'
-	'</section>'
-/, 'spacing';
 
 =begin pod
 
@@ -352,43 +964,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 	'</div>'
 /, 'multiple blocks';
 
-# tests without Albi would still be tests, but definitely very, very sad
-# also, Albi without paragraph blocks wouldn't be the happiest dragon
-# either
-=begin foo
-and so,  all  of  the  villages chased
-Albi,   The   Racist  Dragon, into the
-very   cold   and  very  scary    cave
-
-and it was so cold and so scary in
-there,  that  Albi  began  to  cry
-
-    =for bar
-    Dragon Tears!
-
-Which, as we all know...
-
-    =for bar
-    Turn into Jelly Beans!
-=end foo
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<section>'
-		'<h1>' 'foo' '</h1>'
-		'<p>' 'and so, all of the villages chased Albi, The Racist Dragon, into the very cold and very scary cave' '</p>'
-		'<p>' 'and it was so cold and so scary in there, that Albi began to cry' '</p>'
-		'<section>'
-			'<h1>' 'bar' '</h1>'
-			'<p>' 'Dragon Tears!' '</p>'
-		'</section>'
-		'<p>' 'Which, as we all know...' '</p>'
-		'<section>'
-			'<h1>' 'bar' '</h1>'
-			'<p>' 'Turn into Jelly Beans!' '</p>'
-		'</section>'
-	'</section>'
-/, 'nested blocks';
-
 #`(
 # Without the =begin..=end directives here, each =for is its own directive.
 # It might not quite be in the spirit of the test, XXX
@@ -406,35 +981,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 1
 /;
 )
-
-=foo
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<section>'
-		'<h1>' 'foo' '</h1>'
-	'</section>'
-/, 'hanging block';
-
-=foo some text
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<section>'
-		'<h1>' 'foo' '</h1>'
-		'<p>' 'some text' '</p>'
-	'</section>'
-/, 'hanging block with paragraph';
-
-=foo some text
-and some more
-
-# Yes, 'some text' and 'and some more' are in the same paragraph block, no
-# way to know if they've been broken up.
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<section>'
-		'<h1>' 'foo' '</h1>'
-		'<p>' 'some text and some more' '</p>'
-	'</section>'
-/, 'hanging block with multi-line paragraph';
 
 =begin pod
 
@@ -500,55 +1046,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 		'</h1>'
 	'</div>'
 /, 'mixed contents';
-
-=begin foo
-and so,  all  of  the  villages chased
-Albi,   The   Racist  Dragon, into the
-very   cold   and  very  scary    cave
-
-and it was so cold and so scary in
-there,  that  Albi  began  to  cry
-
-    =bold Dragon Tears!
-
-Which, as we all know...
-
-    =bold Turn
-          into
-          Jelly
-          Beans!
-=end foo
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<section>'
-		'<h1>' 'foo' '</h1>'
-		'<p>' 'and so, all of the villages chased Albi, The Racist Dragon, into the very cold and very scary cave' '</p>'
-		'<p>' 'and it was so cold and so scary in there, that Albi began to cry' '</p>'
-		'<section>'
-			'<h1>' 'bold' '</h1>'
-			'<p>' 'Dragon Tears!' '</p>'
-		'</section>'
-		'<p>' 'Which, as we all know...' '</p>'
-		'<section>'
-			'<h1>' 'bold' '</h1>'
-			'<p>' 'Turn into Jelly Beans!' '</p>'
-		'</section>'
-	'</section>'
-/, 'nested paragraphs';
-
-# from S26
-=table_not
-    Constants 1
-    Variables 10
-    Subroutines 33
-    Everything else 57
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<section>'
-		'<h1>' 'table_not' '</h1>'
-		'<p>' 'Constants 1 Variables 10 Subroutines 33 Everything else 57' '</p>'
-	'</section>'
-/, 'not a table';
 
 =head3
 Heading level 3
@@ -910,31 +1407,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 #   132341 - pad rows to add empty cells to ensure all rows have same number of cells
 #   132348 - handle inline Z<> comments on table rows
 
-# test fix for RT #124403 - incorrect table parse:
-=table
-+-----+----+---+
-|   a | b  | c |
-+-----+----+---+
-| foo | 52 | Y |
-| bar | 17 | N |
-|  dz | 9  | Y |
-+-----+----+---+
-
-# Check out the raw pod if you don't believe me, this is a set of single
-# rows.
-#
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<table>'
-		'<tr>' '<td>' '+-----+----+---+' '</td>' '</tr>'
-		'<tr>' '<td>' '| a | b | c |'    '</td>' '</tr>'
-		'<tr>' '<td>' '+-----+----+---+' '</td>' '</tr>'
-		'<tr>' '<td>' '| foo | 52 | Y |' '</td>' '</tr>'
-		'<tr>' '<td>' '| bar | 17 | N |' '</td>' '</tr>'
-		'<tr>' '<td>' '| dz | 9 | Y |'   '</td>' '</tr>'
-		'<tr>' '<td>' '+-----+----+---+' '</td>' '</tr>'
-	'</table>'
-/, 'single rows';
-
 #`(
 # XXX This bug has moved to NQP.
 # test fix for RT #128221
@@ -963,470 +1435,6 @@ r1Col 1  | -r1Col 2 | _r1Col 3 | =r1Col 4
 r1       |  r1Col 2 | _r1Col 3 | =r1Col 4
 -------|--------|--------|-------
 r2Col  1 | r2Col 2  |  r2Col 3 |  r2Col 4
-=end table
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-1
-/;
-)
-
-# test fix for issue RT #129862
-# uneven rows
-=begin table
-a | b | c
-l | m | n
-x | y
-=end table
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<table>'
-		'<tr>'
-			'<td>' 'a' '</td>'
-			'<td>' 'b' '</td>'
-			'<td>' 'c' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' 'l' '</td>'
-			'<td>' 'm' '</td>'
-			'<td>' 'n' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' 'x' '</td>'
-			'<td>' 'y' '</td>'
-		'</tr>'
-	'</table>'
-/, 'short row';
-
-# test fix for RT #132341
-# also tests fix for RT #129862
-=table
-    X   O
-   ===========
-        X   O
-   ===========
-            X
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<table>'
-		'<tr>'
-			'<td>' 'X' '</td>'
-			'<td>' 'O' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' '</td>'
-			'<td>' 'X' '</td>'
-			'<td>' 'O' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' '</td>'
-			'<td>' '</td>'
-			'<td>' 'X' '</td>'
-		'</tr>'
-	'</table>'
-/, 'RT #132341 regression';
-
-#`(
-# test fix for RT #132348 (allow inline Z comments)
-# also tests fix for RT #129862
-=begin table
-a | b | c
-l | m | n
-x | y      Z<a comment> Z<another comment>
-=end table
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-1
-/;
-)
-
-# a single column table, no headers
-=begin table
-a
-=end table
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<table>'
-		'<tr>'
-			'<td>' 'a' '</td>'
-		'</tr>'
-	'</table>'
-/, 'single-cell table';
-
-# a single column table, with header
-=begin table
-b
--
-a
-=end table
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<table>'
-		'<th>'
-			'<td>' 'b' '</td>'
-		'</th>'
-		'<tr>'
-			'<td>' 'a' '</td>'
-		'</tr>'
-	'</table>'
-/, 'table with header';
-
-# test fix for rakudo repo issue #1282:
-# need to handle table cells with char column separators as data
-# example table from <https://docs.perl6.org/language/regexes>
-# WITHOUT the escaped characters (results in an extra, unwanted, incorrect column)
-=begin table
-
-    Operator  |  Meaning
-    ==========+=========
-     +        |  set union
-     |        |  set union
-     &        |  set intersection
-     -        |  set difference (first minus second)
-     ^        |  symmetric set intersection / XOR
-
-=end table
-
-# XXX '&' needs to be escaped, among others probably.
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<table>'
-		'<th>'
-			'<td>' 'Operator' '</td>'
-			'<td>' 'Meaning' '</td>'
-		'</th>'
-		'<tr>'
-			'<td>' '+' '</td>'
-			'<td>' 'set union' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' '</td>'
-			'<td>' '</td>'
-			'<td>' 'set union' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' '&' '</td>'
-			'<td>' 'set intersection' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' '-' '</td>'
-			'<td>' 'set difference (first minus second)' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' '^' '</td>'
-			'<td>' 'symmetric set intersection / XOR' '</td>'
-		'</tr>'
-	'</table>'
-/, 'Table with header and gaps';
-
-# WITHOUT the escaped characters and without the non-breaking spaces
-# (results in the desired table)
-=begin table
-
-    Operator  |  Meaning
-    ==========+=========
-    +       |  set union
-    |       |  set union
-    &       |  set intersection
-    -       |  set difference (first minus second)
-    ^       |  symmetric set intersection / XOR
-
-=end table
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<table>'
-		'<th>'
-			'<td>' 'Operator' '</td>'
-			'<td>' 'Meaning' '</td>'
-		'</th>'
-		'<tr>'
-			'<td>' '+ &' '</td>'
-			'<td>' 'set union set intersection' '</td>'
-			'<td>' 'set union' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' '^' '</td>'
-			'<td>' 'symmetric set intersection / XOR' '</td>'
-		'</tr>'
-	'</table>'
-/, 'escaped characters';
-
-# WITH the escaped characters (results in the desired table)
-=begin table
-
-    Operator  |  Meaning
-    ==========+=========
-     \+        |  set union
-     \|        |  set union
-     &        |  set intersection
-     -        |  set difference (first minus second)
-     ^        |  symmetric set intersection / XOR
-
-=end table
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<table>'
-		'<th>'
-			'<td>' 'Operator' '</td>'
-			'<td>' 'Meaning' '</td>'
-		'</th>'
-		'<tr>'
-			'<td>' '\\+' '</td>'
-			'<td>' 'set union' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' '\\|' '</td>'
-			'<td>' 'set union' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' '&' '</td>'
-			'<td>' 'set intersection' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' '-' '</td>'
-			'<td>' 'set difference (first minus second)' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' '^' '</td>'
-			'<td>' 'symmetric set intersection / XOR' '</td>'
-		'</tr>'
-	'</table>'
-/, 'escaped, and some non-breaking spaces';
-
-# WITH the escaped characters but without the non-breaking spaces
-# (results in the desired table)
-
-=begin table
-
-    Operator  |  Meaning
-    ==========+=========
-    \+       |  set union
-    \|       |  set union
-    &       |  set intersection
-    -       |  set difference (first minus second)
-    ^       |  symmetric set intersection / XOR
-
-=end table
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<table>'
-		'<th>'
-			'<td>' 'Operator' '</td>'
-			'<td>' 'Meaning' '</td>'
-		'</th>'
-		'<tr>'
-			'<td>' '\\+ \\| &' '</td>'
-			'<td>' 'set union set union set intersection' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' '^' '</td>'
-			'<td>' 'symmetric set intersection / XOR' '</td>'
-		'</tr>'
-	'</table>'
-/, 'escaped, no non-breaking spaces';
-
-=begin table
-        The Shoveller   Eddie Stevens     King Arthur's singing shovel
-        Blue Raja       Geoffrey Smith    Master of cutlery
-        Mr Furious      Roy Orson         Ticking time bomb of fury
-        The Bowler      Carol Pinnsler    Haunted bowling ball
-=end table
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<table>'
-		'<tr>'
-			'<td>' 'The Shoveller' '</td>'
-			'<td>' 'Eddie Stevens' '</td>'
-			'<td>' 'King Arthur\'s singing shovel' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' 'Blue Raja' '</td>'
-			'<td>' 'Geoffrey Smith' '</td>'
-			'<td>' 'Master of cutlery' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' 'Mr Furious' '</td>'
-			'<td>' 'Roy Orson' '</td>'
-			'<td>' 'Ticking time bomb of fury' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' 'The Bowler' '</td>'
-			'<td>' 'Carol Pinnsler' '</td>'
-			'<td>' 'Haunted bowling ball' '</td>'
-		'</tr>'
-	'</table>'
-/, 'simple table';
-
-#`(
-=table
-    Constants           1
-    Variables           10
-    Subroutines         33
-    Everything else     57
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-1
-/;
-)
-
-=for table
-    mouse    | mice
-    horse    | horses
-    elephant | elephants
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<table>'
-		'<tr>'
-			'<td>' 'mouse' '</td>'
-			'<td>' 'mice' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' 'horse' '</td>'
-			'<td>' 'horses' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' 'elephant' '</td>'
-			'<td>' 'elephants' '</td>'
-		'</tr>'
-	'</table>'
-/, 'two-column table, no header';
-
-=table
-    Animal | Legs |    Eats
-    =======================
-    Zebra  +   4  + Cookies
-    Human  +   2  +   Pizza
-    Shark  +   0  +    Fish
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<table>'
-		'<th>'
-			'<td>' 'Animal' '</td>'
-			'<td>' 'Legs' '</td>'
-			'<td>' 'Eats' '</td>'
-		'</th>'
-		'<tr>'
-			'<td>' 'Zebra' '</td>'
-			'<td>' '4' '</td>'
-			'<td>' 'Cookies' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' 'Human' '</td>'
-			'<td>' '2' '</td>'
-			'<td>' 'Pizza' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' 'Shark' '</td>'
-			'<td>' '0' '</td>'
-			'<td>' 'Fish' '</td>'
-		'</tr>'
-	'</table>'
-/, 'hanging table';
-
-=table
-        Superhero     | Secret          |
-                      | Identity        | Superpower
-        ==============|=================|================================
-        The Shoveller | Eddie Stevens   | King Arthur's singing shovel
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<table>'
-		'<th>'
-			'<td>' 'Superhero' '</td>'
-			'<td>' 'Secret Identity' '</td>'
-			'<td>' 'Superpower' '</td>'
-		'</th>'
-		'<tr>'
-			'<td>' 'The Shoveller' '</td>'
-			'<td>' 'Eddie Stevens' '</td>'
-			'<td>' "King Arthur's singing shovel" '</td>'
-		'</tr>'
-	'</table>'
-/, 'hanging table with multiline header';
-
-=begin table
-
-                        Secret
-        Superhero       Identity          Superpower
-        =============   ===============   ===================
-        The Shoveller   Eddie Stevens     King Arthur's
-                                          singing shovel
-
-        Blue Raja       Geoffrey Smith    Master of cutlery
-
-        Mr Furious      Roy Orson         Ticking time bomb
-                                          of fury
-
-        The Bowler      Carol Pinnsler    Haunted bowling ball
-
-=end table
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<table>'
-		'<th>'
-			'<td>' 'Superhero' '</td>'
-			'<td>' 'Secret Identity' '</td>'
-			'<td>' 'Superpower' '</td>'
-		'</th>'
-		'<tr>'
-			'<td>' 'The Shoveller' '</td>'
-			'<td>' 'Eddie Stevens' '</td>'
-			'<td>' "King Arthur's singing shovel" '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' 'Blue Raja' '</td>'
-			'<td>' 'Geoffrey Smith' '</td>'
-			'<td>' 'Master of cutlery' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' 'Mr Furious' '</td>'
-			'<td>' 'Roy Orson' '</td>'
-			'<td>' 'Ticking time bomb of fury' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' 'The Bowler' '</td>'
-			'<td>' 'Carol Pinnsler' '</td>'
-			'<td>' 'Haunted bowling ball' '</td>'
-		'</tr>'
-	'</table>'
-/, 'table with == separators';
-
-=table
-    X | O |
-   ---+---+---
-      | X | O
-   ---+---+---
-      |   | X
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<table>'
-		'<tr>'
-			'<td>' 'X' '</td>'
-			'<td>' 'O' '</td>'
-			'<td>' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' '</td>'
-			'<td>' 'X' '</td>'
-			'<td>' 'O' '</td>'
-		'</tr>'
-		'<tr>'
-			'<td>' '</td>'
-			'<td>' '</td>'
-			'<td>' 'X' '</td>'
-		'</tr>'
-	'</table>'
-/, 'tic-tac-toe with empty squares';
-
-#`(
-# test for:
-#   RT #126740 - Pod::Block::Table node caption property is not populated properly
-# Note that the caption property is just one of the table's %config key/value
-# pairs so any tests for other config keys in a single table are usually the same as testing
-# multiple tables, each for one caption test.
-=begin table :caption<foo> :bar(0)
-
-foo
-bar
-
 =end table
 
 like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
