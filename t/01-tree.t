@@ -910,7 +910,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 #   132341 - pad rows to add empty cells to ensure all rows have same number of cells
 #   132348 - handle inline Z<> comments on table rows
 
-#`(
 # test fix for RT #124403 - incorrect table parse:
 =table
 +-----+----+---+
@@ -935,7 +934,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 		'<tr>' '<td>' '+-----+----+---+' '</td>' '</tr>'
 	'</table>'
 /, 'single rows';
-)
 
 #`(
 # XXX This bug has moved to NQP.
@@ -972,7 +970,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 /;
 )
 
-#`(
 # test fix for issue RT #129862
 # uneven rows
 =begin table
@@ -999,9 +996,7 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 		'</tr>'
 	'</table>'
 /, 'short row';
-)
 
-#`(
 # test fix for RT #132341
 # also tests fix for RT #129862
 =table
@@ -1029,7 +1024,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 		'</tr>'
 	'</table>'
 /, 'RT #132341 regression';
-)
 
 #`(
 # test fix for RT #132348 (allow inline Z comments)
@@ -1045,7 +1039,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 /;
 )
 
-#`(
 # a single column table, no headers
 =begin table
 a
@@ -1058,7 +1051,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 		'</tr>'
 	'</table>'
 /, 'single-cell table';
-)
 
 # a single column table, with header
 =begin table
@@ -1231,7 +1223,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 	'</table>'
 /, 'escaped, no non-breaking spaces';
 
-#`(
 =begin table
         The Shoveller   Eddie Stevens     King Arthur's singing shovel
         Blue Raja       Geoffrey Smith    Master of cutlery
@@ -1263,7 +1254,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 		'</tr>'
 	'</table>'
 /, 'simple table';
-)
 
 #`(
 =table
@@ -1277,16 +1267,27 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 /;
 )
 
-#`(
 =for table
     mouse    | mice
     horse    | horses
     elephant | elephants
 
 like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-1
-/;
-)
+	'<table>'
+		'<tr>'
+			'<td>' 'mouse' '</td>'
+			'<td>' 'mice' '</td>'
+		'</tr>'
+		'<tr>'
+			'<td>' 'horse' '</td>'
+			'<td>' 'horses' '</td>'
+		'</tr>'
+		'<tr>'
+			'<td>' 'elephant' '</td>'
+			'<td>' 'elephants' '</td>'
+		'</tr>'
+	'</table>'
+/, 'two-column table, no header';
 
 =table
     Animal | Legs |    Eats
@@ -1388,7 +1389,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 	'</table>'
 /, 'table with == separators';
 
-#`(
 =table
     X | O |
    ---+---+---
@@ -1397,9 +1397,24 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
       |   | X
 
 like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-1
-/;
-)
+	'<table>'
+		'<tr>'
+			'<td>' 'X' '</td>'
+			'<td>' 'O' '</td>'
+			'<td>' '</td>'
+		'</tr>'
+		'<tr>'
+			'<td>' '</td>'
+			'<td>' 'X' '</td>'
+			'<td>' 'O' '</td>'
+		'</tr>'
+		'<tr>'
+			'<td>' '</td>'
+			'<td>' '</td>'
+			'<td>' 'X' '</td>'
+		'</tr>'
+	'</table>'
+/, 'tic-tac-toe with empty squares';
 
 #`(
 # test for:
@@ -1451,7 +1466,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /:s
 /, 'links';
 )
 
-#`(
 =begin pod
 
 =head1 A heading
@@ -1466,17 +1480,17 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 	'<div>'
 		'<h1>'
 			'<p>' 'A heading' '</p>'
-		 '</h1>'
-	'<p>' 'This is Pod too. Specifically, this is a simple'
-		'<code>' 'para' '</code>'
-		'block'
-	'</p>'
-	'<code>'
-		'\$this = pod(\'also\');  # Specifically, a code block'
-	'</code>'
+		'</h1>'
+		'<p>'
+			'This is Pod too. Specifically, this is a simple '
+			'<code>' 'para' '</code>'
+			' block'
+		'</p>'
+		'<code>'
+			'$this = pod(\'also\');  # Specifically, a code block'
+		'</code>'
 	'</div>'
 /, 'mixture';
-)
 
 =pod V<C<boo> B<bar> asd>
 
@@ -1596,25 +1610,27 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 #like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 #1
 #/;
-#
-#=begin pod
-#    =begin code :allow<B>
-#    These words have some B<importance>.
-#    =end code
-#=end pod
-#
-##die $=pod[$pod-counter].perl;
-#$r = $=pod[$pod-counter];
-##die $r;
-#
-#like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /:s
-#	'<code>'
-#		'These words have some'
-#		'<b>' 'importance' '</b>'
-#		'.'
-#	'</code>'
-#/, 'Adjective';
-#
+
+#`(
+=begin pod
+    =begin code :allow<B>
+    These words have some B<importance>.
+    =end code
+=end pod
+
+#die $=pod[$pod-counter].perl;
+$r = $=pod[$pod-counter];
+#die $r;
+
+like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+	'<code>'
+		'These words have some'
+		'<b>' 'importance' '</b>'
+		'.'
+	'</code>'
+/, 'Adjective';
+)
+
 #isa-ok $r.contents[0].contents[1], Pod::FormattingCode;
 
 done-testing;

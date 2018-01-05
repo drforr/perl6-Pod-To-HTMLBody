@@ -36,6 +36,20 @@ class Node {
 	has $.next-sibling is rw;
 	has $.previous-sibling is rw;
 	has $.last-child is rw;
+
+	method add-below( $to-insert ) {
+		return unless $to-insert;
+		$to-insert.parent = self;
+		if $.first-child {
+			$to-insert.previous-sibling = $.last-child;
+			$.last-child.next-sibling = $to-insert;
+			$.last-child = $to-insert;
+		}
+		else {
+			$.first-child = $to-insert;
+			$.last-child = $to-insert;
+		}
+	}
 }
 
 class Node::Bold is Node {
@@ -151,6 +165,12 @@ class Pod::To::HTMLBody {
 		$html;
 	}
 
+	method add-contents-below( $node, $pod ) {
+		for @( $pod.contents ) -> $element {
+			$node.add-below( self.to-node( $element ) );
+		}
+	}
+
 	method render( $pod ) {
 		my $tree = self.pod-to-tree( $pod );
 		return self.tree-to-html( $tree );
@@ -162,37 +182,13 @@ class Pod::To::HTMLBody {
 
 	multi method to-node( Pod::Block::Code $pod ) {
 		my $node = Node::Code.new;
-		for @( $pod.contents ) -> $element {
-			my $child = self.to-node( $element );
-			$child.parent = $node;
-			if $node.first-child {
-				$node.last-child.next-sibling = $child;
-				$child.previous-sibling = $node.last-child;
-				$node.last-child = $child;
-			}
-			else {
-				$node.first-child = $child;
-				$node.last-child = $child;
-			}
-		}
+		self.add-contents-below( $node, $pod );
 		$node;
 	}
 
 	multi method to-node( Pod::Block::Comment $pod ) {
 		my $node = Node::Comment.new;
-		for @( $pod.contents ) -> $element {
-			my $child = self.to-node( $element );
-			$child.parent = $node;
-			if $node.first-child {
-				$node.last-child.next-sibling = $child;
-				$child.previous-sibling = $node.last-child;
-				$node.last-child = $child;
-			}
-			else {
-				$node.first-child = $child;
-				$node.last-child = $child;
-			}
-		}
+		self.add-contents-below( $node, $pod );
 		$node;
 	}
 
@@ -205,35 +201,14 @@ class Pod::To::HTMLBody {
 
 	multi method to-node( Pod::Block::Para $pod ) {
 		my $node = Node::Paragraph.new;
-		for @( $pod.contents ) -> $element {
-			my $child = self.to-node( $element );
-			$child.parent = $node;
-			if $node.first-child {
-				$node.last-child.next-sibling = $child;
-				$child.previous-sibling = $node.last-child;
-				$node.last-child = $child;
-			}
-			else {
-				$node.first-child = $child;
-				$node.last-child = $child;
-			}
-		}
+		self.add-contents-below( $node, $pod );
 		$node;
 	}
 
 	multi method to-node( Pod::Block::Table $pod ) {
 		my $node = Node::Table.new;
-		my $header = self.new-Node-Table-Header( $pod );
-		my $body = self.new-Node-Table-Body( $pod );
-		if $header.first-child {
-			$node.first-child = $header;
-			$node.last-child = $header;
-		}
-		if $body.first-child {
-			$node.first-child.next-sibling = $body;
-			$body.previous-sibling = $header;
-			$node.last-child = $body;
-		}
+		$node.add-below( self.new-Node-Table-Header( $pod ) );
+		$node.add-below( self.new-Node-Table-Body( $pod ) );
 		$node;
 	}
 
@@ -241,36 +216,12 @@ class Pod::To::HTMLBody {
 		given $pod.type {
 			when 'B' {
 				my $node = Node::Bold.new;
-				for @( $pod.contents ) -> $element {
-					my $child = self.to-node( $element );
-					$child.parent = $node;
-					if $node.first-child {
-						$node.last-child.next-sibling = $child;
-						$child.previous-sibling = $node.last-child;
-						$node.last-child = $child;
-					}
-					else {
-						$node.first-child = $child;
-						$node.last-child = $child;
-					}
-				}
+				self.add-contents-below( $node, $pod );
 				$node;
 			}
 			when 'C' {
 				my $node = Node::Code.new;
-				for @( $pod.contents ) -> $element {
-					my $child = self.to-node( $element );
-					$child.parent = $node;
-					if $node.first-child {
-						$node.last-child.next-sibling = $child;
-						$child.previous-sibling = $node.last-child;
-						$node.last-child = $child;
-					}
-					else {
-						$node.first-child = $child;
-						$node.last-child = $child;
-					}
-				}
+				self.add-contents-below( $node, $pod );
 				$node;
 			}
 			when 'E' {
@@ -281,38 +232,15 @@ class Pod::To::HTMLBody {
 				$node;
 			}
 			when 'L' {
-				my $node = Node::Link.new;
-				$node.url = $pod.meta;
-				for @( $pod.contents ) -> $element {
-					my $child = self.to-node( $element );
-					$child.parent = $node;
-					if $node.first-child {
-						$node.last-child.next-sibling = $child;
-						$child.previous-sibling = $node.last-child;
-						$node.last-child = $child;
-					}
-					else {
-						$node.first-child = $child;
-						$node.last-child = $child;
-					}
-				}
+				my $node = Node::Link.new(
+					:url( $pod.meta )
+				);
+				self.add-contents-below( $node, $pod );
 				$node;
 			}
 			when 'R' {
 				my $node = Node::Reference.new;
-				for @( $pod.contents ) -> $element {
-					my $child = self.to-node( $element );
-					$child.parent = $node;
-					if $node.first-child {
-						$node.last-child.next-sibling = $child;
-						$child.previous-sibling = $node.last-child;
-						$node.last-child = $child;
-					}
-					else {
-						$node.first-child = $child;
-						$node.last-child = $child;
-					}
-				}
+				self.add-contents-below( $node, $pod );
 				$node;
 			}
 			default { self.new-Node-Section( $pod ) }
@@ -321,37 +249,13 @@ class Pod::To::HTMLBody {
 
 	multi method to-node( Pod::Heading $pod ) {
 		my $node = Node::Heading.new( :level( $pod.level ) );
-		for @( $pod.contents ) -> $element {
-			my $child = self.to-node( $element );
-			$child.parent = $node;
-			if $node.first-child {
-				$node.last-child.next-sibling = $child;
-				$child.previous-sibling = $node.last-child;
-				$node.last-child = $child;
-			}
-			else {
-				$node.first-child = $child;
-				$node.last-child = $child;
-			}
-		}
+		self.add-contents-below( $node, $pod );
 		$node;
 	}
 
 	multi method to-node( Pod::Item $pod ) {
 		my $node = Node::Item.new( :level( $pod.level ) );
-		for @( $pod.contents ) -> $element {
-			my $child = self.to-node( $element );
-			$child.parent = $node;
-			if $node.first-child {
-				$node.last-child.next-sibling = $child;
-				$child.previous-sibling = $node.last-child;
-				$node.last-child = $child;
-			}
-			else {
-				$node.first-child = $child;
-				$node.last-child = $child;
-			}
-		}
+		self.add-contents-below( $node, $pod );
 		$node;
 	}
 
@@ -370,35 +274,16 @@ class Pod::To::HTMLBody {
 	method new-Node-Table-Header( $pod ) {
 		my $node = Node::Table::Header.new;
 		for @( $pod.headers ) -> $element {
-			my $child = self.new-Node-Table-Data( $element );
-			$child.parent = $node;
-			if $node.first-child {
-				$node.last-child.next-sibling = $child;
-				$child.previous-sibling = $node.last-child;
-				$node.last-child = $child;
-			}
-			else {
-				$node.first-child = $child;
-				$node.last-child = $child;
-			}
+			$node.add-below( self.new-Node-Table-Data( $element ) );
 		}
-		$node;
+		return $node if $node.first-child;
+		return Nil;
 	}
 
 	method new-Node-Table-Body-Row( $pod ) {
 		my $node = Node::Table::Body::Row.new;
 		for @( $pod ) -> $element {
-			my $child = self.new-Node-Table-Data( $element );
-			$child.parent = $node;
-			if $node.first-child {
-				$node.last-child.next-sibling = $child;
-				$child.previous-sibling = $node.last-child;
-				$node.last-child = $child;
-			}
-			else {
-				$node.first-child = $child;
-				$node.last-child = $child;
-			}
+			$node.add-below( self.new-Node-Table-Data( $element ) );
 		}
 		$node;
 	}
@@ -407,54 +292,23 @@ class Pod::To::HTMLBody {
 	method new-Node-Table-Body( $pod ) {
 		my $node = Node::Table::Body.new;
 		for @( $pod.contents ) -> $element {
-			my $child = self.new-Node-Table-Body-Row( $element );
-			$child.parent = $node;
-			if $node.first-child {
-				$node.last-child.next-sibling = $child;
-				$child.previous-sibling = $node.last-child;
-				$node.last-child = $child;
-			}
-			else {
-				$node.first-child = $child;
-				$node.last-child = $child;
-			}
+			$node.add-below( 
+				self.new-Node-Table-Body-Row( $element )
+			);
 		}
-		$node;
+		return $node if $node.first-child;
+		return Nil;
 	}
 
 	method new-Node-Document( $pod ) {
 		my $node = Node::Document.new;
-		for @( $pod.contents ) -> $element {
-			my $child = self.to-node( $element );
-			$child.parent = $node;
-			if $node.first-child {
-				$node.last-child.next-sibling = $child;
-				$child.previous-sibling = $node.last-child;
-				$node.last-child = $child;
-			}
-			else {
-				$node.first-child = $child;
-				$node.last-child = $child;
-			}
-		}
+		self.add-contents-below( $node, $pod );
 		$node;
 	}
 
 	method new-Node-Section( $pod ) {
 		my $node = Node::Section.new( :title( $pod.name ) );
-		for @( $pod.contents ) -> $element {
-			my $child = self.to-node( $element );
-			$child.parent = $node;
-			if $node.first-child {
-				$node.last-child.next-sibling = $child;
-				$child.previous-sibling = $node.last-child;
-				$node.last-child = $child;
-			}
-			else {
-				$node.first-child = $child;
-				$node.last-child = $child;
-			}
-		}
+		self.add-contents-below( $node, $pod );
 		$node;
 	}
 
