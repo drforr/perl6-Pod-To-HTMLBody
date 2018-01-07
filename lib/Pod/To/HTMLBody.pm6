@@ -37,9 +37,49 @@ class Node {
 	has $.previous-sibling is rw;
 	has $.last-child is rw;
 
+	method indent( Int $layer ) { ' ' xx $layer }
+	method display( $layer ) {
+		my @layer =
+			self.WHAT.perl ~ "(\n",
+			'  ' ~ self.parent ?? ':parent()' !! ':!parent',
+			")\n";
+		;
+		return join( '', map { self.indent( $layer ) ~ $_ }, @layer );
+	}
+	method visualize( $layer = 0 ) {
+		my $text = self.display( $layer );
+		my $child = $.first-child;
+		while $child {
+			$text ~= $child.visualize( $layer + 1 );
+			$child = $child.next-sibling;
+		}
+		$text;
+	}
+
+	method replace-with( $node ) {
+		$node.parent = $.parent;
+		$node.previous-sibling = $.previous-sibling;
+		$node.next-sibling = $.next-sibling;
+		# Don't touch first- and last-child.
+
+		if $.parent and $.parent.first-child === self {
+			$.parent.first-child = $node;
+		}
+		if $.parent and $.parent.last-child === self {
+			$.parent.last-child = $node;
+		}
+		if $.previous-sibling {
+			$.previous-sibling.next-sibling = $node;
+		}
+		if $.next-sibling {
+			$.next-sibling.previous-sibling = $node;
+		}
+	}
+
 	method add-below( $to-insert ) {
 		return unless $to-insert;
 		$to-insert.parent = self;
+		$to-insert.next-sibling = Nil;
 		if $.first-child {
 			$to-insert.previous-sibling = $.last-child;
 			$.last-child.next-sibling = $to-insert;
@@ -74,7 +114,7 @@ class Node::Document is Node {
 
 class Node::Entity is Node {
 	has $.contents;
-	method html-start { $.contents }
+	method html-start { $.contents } # XXX Need to escape contents
 	method html-end { '' }
 }
 
@@ -152,7 +192,6 @@ class Node::Table::Body::Row is Node {
 }
 
 class Pod::To::HTMLBody {
-
 	sub walk( $node ) {
 		my $html = '';
 		$html ~= $node.html-start;
@@ -173,6 +212,7 @@ class Pod::To::HTMLBody {
 
 	method render( $pod ) {
 		my $tree = self.pod-to-tree( $pod );
+#say $tree.visualize;
 		return self.tree-to-html( $tree );
 	}
 
@@ -207,8 +247,10 @@ class Pod::To::HTMLBody {
 
 	multi method to-node( Pod::Block::Table $pod ) {
 		my $node = Node::Table.new;
-		$node.add-below( self.new-Node-Table-Header( $pod ) );
-		$node.add-below( self.new-Node-Table-Body( $pod ) );
+		$node.add-below( self.new-Node-Table-Header( $pod ) )
+			if $pod.headers.elems;
+		$node.add-below( self.new-Node-Table-Body( $pod ) )
+			if $pod.contents.elems;
 		$node;
 	}
 
@@ -225,7 +267,6 @@ class Pod::To::HTMLBody {
 				$node;
 			}
 			when 'E' {
-				# XXX Need to escape this properly
 				my $node = Node::Entity.new(
 					:contents( $pod.contents )
 				);
@@ -260,14 +301,13 @@ class Pod::To::HTMLBody {
 	}
 
 	multi method to-node( Str $pod ) {
-		Node::Text.new( :value( $pod ) )
+		my $node = Node::Text.new( :value( $pod ) );
+		$node;
 	}
 
 	method new-Node-Table-Data( $pod ) {
 		my $node = Node::Table::Data.new;
-		my $child = self.to-node( $pod );
-		$node.first-child = $child;
-		$node.last-child = $child;
+		$node.add-below( self.to-node( $pod ) );
 		$node;
 	}
 
@@ -276,8 +316,7 @@ class Pod::To::HTMLBody {
 		for @( $pod.headers ) -> $element {
 			$node.add-below( self.new-Node-Table-Data( $element ) );
 		}
-		return $node if $node.first-child;
-		return Nil;
+		$node;
 	}
 
 	method new-Node-Table-Body-Row( $pod ) {
@@ -288,7 +327,6 @@ class Pod::To::HTMLBody {
 		$node;
 	}
 
-
 	method new-Node-Table-Body( $pod ) {
 		my $node = Node::Table::Body.new;
 		for @( $pod.contents ) -> $element {
@@ -296,8 +334,7 @@ class Pod::To::HTMLBody {
 				self.new-Node-Table-Body-Row( $element )
 			);
 		}
-		return $node if $node.first-child;
-		return Nil;
+		$node;
 	}
 
 	method new-Node-Document( $pod ) {
@@ -312,8 +349,33 @@ class Pod::To::HTMLBody {
 		$node;
 	}
 
+	sub walk-for-list( $tree ) {
+		my $child = $tree.first-child;
+		while $child {
+			walk-for-list( $child );
+			if $child ~~ Node::Item {
+				my $new-list = Node::List.new;
+				$new-list.add-below( $child );
+				$child.replace-with( $new-list );
+			}
+			$child = $child.next-sibling;
+		}
+	}
+
+	sub fixup-root-item( $tree ) {
+		if $tree ~~ Node::Item {
+			my $new-list = Node::List.new;
+			$new-list.add-below( $tree );
+			return $new-list;
+		}
+		$tree;
+	}
+
 	method pod-to-tree( $pod ) {
 		my $tree = self.to-node( $pod );
+		$tree = fixup-root-item( $tree );
+		walk-for-list( $tree );
+#		squish-items( $tree );
 		return $tree;
 	}
 

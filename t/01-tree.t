@@ -2,6 +2,99 @@ use v6;
 use Pod::To::HTMLBody;
 use Test;
 
+subtest 'tree manipulation', {
+	my $item = Node::Item.new;
+
+	my $new-list = Node::List.new;
+	$new-list.add-below( $item );
+
+	subtest 'links from new-list', {
+		nok $new-list.parent;
+		nok $new-list.previous-sibling;
+		nok $new-list.next-sibling;
+		is $new-list.first-child, $item;
+		is $new-list.last-child, $item;
+	};
+
+	subtest 'links from item', {
+		is $item.parent, $new-list;
+		nok $item.previous-sibling;
+		nok $item.next-sibling;
+		nok $item.first-child;
+		nok $item.last-child;
+	};
+
+	my $new-item = Node::Item.new;
+	$item.replace-with( $new-item );
+
+	subtest 'new-list after replacing item', {
+		nok $new-list.parent;
+		nok $new-list.previous-sibling;
+		nok $new-list.next-sibling;
+		is $new-list.first-child, $new-item;
+		is $new-list.last-child, $new-item;
+
+	};
+
+	subtest 'new-item after being emplaced', {
+		is $new-item.parent, $new-list;
+		nok $new-item.previous-sibling;
+		nok $new-item.next-sibling;
+		nok $new-item.first-child;
+		nok $new-item.last-child;
+	};
+
+	my $item2 = Node::Item.new;
+	$new-list.add-below( $item2 );
+
+	subtest 'new-list after adding $item2', {
+		nok $new-list.parent;
+		nok $new-list.previous-sibling;
+		nok $new-list.next-sibling;
+		is $new-list.first-child, $new-item;
+		is $new-list.last-child, $item2;
+	};
+
+	# Root <-
+	#  | |   \
+	#  V V   /
+	# List -  <-
+	#  | |      \
+	#  V V      /
+	# Item
+	#  | |
+	#  V V
+	#  X X
+
+	my $the-root = Node::Document.new;
+	my $the-item = Node::Item.new;
+	my $the-list = Node::List.new;
+	$the-root.add-below( $the-list );
+	$the-list.add-below( $the-item );
+
+	subtest 'root', {
+		nok $the-root.parent;
+		nok $the-root.previous-sibling;
+		nok $the-root.next-sibling;
+		is $the-root.first-child, $the-list;
+		is $the-root.last-child, $the-list;
+	};
+	subtest 'list', {
+		is $the-list.parent, $the-root;
+		nok $the-list.previous-sibling;
+		nok $the-list.next-sibling;
+		is $the-list.first-child, $the-item;
+		is $the-list.last-child, $the-item;
+	};
+	subtest 'item', {
+		is $the-item.parent, $the-list;
+		nok $the-item.previous-sibling;
+		nok $the-item.next-sibling;
+		nok $the-item.first-child;
+		nok $the-item.last-child;
+	};
+};
+
 my $pod-counter = 0;
 my $r;
 
@@ -813,6 +906,113 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 )
 };
 
+subtest 'item', {
+=item foo
+
+	# Isn't part of the Roast suite, but I need it to check some edge cases.
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<ul>'
+			'<li>'
+				'<p>' 'foo' '</p>'
+			'</li>'
+		'</ul>'
+	/, 'standalone item';
+
+=begin pod
+=item foo
+=item bar
+=end pod
+
+	# Isn't part of the Roast suite, but I need it to check some edge cases.
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<div>'
+			'<ul>'
+				'<li>'
+					'<p>' 'foo' '</p>'
+					'<p>' 'bar' '</p>'
+				'</li>'
+			'</ul>'
+		'</div>'
+	/, 'items';
+
+#`(
+=begin pod
+The seven suspects are:
+
+=item  Happy
+=item  Dopey
+=item  Sleepy
+=item  Bashful
+=item  Sneezy
+=item  Grumpy
+=item  Keyser Soze
+=end pod
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<div>'
+			'<p>' 'The seven suspects are:' '</p>'
+			'<ul>'
+				'<li>' 'Happy' '</li>'
+				'<li>' 'Dopey' '</li>'
+				'<li>' 'Sleepy' '</li>'
+				'<li>' 'Bashful' '</li>'
+				'<li>' 'Sneezy' '</li>'
+				'<li>' 'Grumpy' '</li>'
+				'<li>' 'Keyser Soze' '</li>'
+			'</ul>'
+		'</div>'
+	/, 'one-level list';
+)
+
+#`(
+=begin pod
+=item1  Animal
+=item2     Vertebrate
+=item2     Invertebrate
+
+=item1  Phase
+=item2     Solid
+=item2     Liquid
+=item2     Gas
+=item2     Chocolate
+=end pod
+
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<ul>'
+			'<li>' 'Animal' '</li>'
+			'<ul>'
+				'<li>' 'Vertebrate' '</li>'
+				'<li>' 'Invertebrate' '</li>'
+			'</ul>'
+			'<li>' 'Phase' '</li>'
+			'<ul>'
+				'<li>' 'Solid' '</li>'
+				'<li>' 'Liquid' '</li>'
+				'<li>' 'Gas' '</li>'
+				'<li>' 'Chocolate' '</li>'
+			'</ul>'
+		'</ul>'
+	/, 'nested lists';
+)
+
+#`(
+=begin pod
+=comment CORRECT...
+=begin item1
+The choices are:
+=end item1
+=item2 Liberty
+=item2 Death
+=item2 Beer
+=item2 Cake
+=end pod
+
+like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+1
+/;
+)
+};
+
 =begin pod
 sample paragraph
 =begin table
@@ -1163,19 +1363,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 /, 'complex code block';
 
 #`(
-=item foo
-
-# Isn't part of the Roast suite, but I need it to check some edge cases.
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<ul>'
-		'<li>'
-			'<p>' 'foo' '</p>'
-		'</li>'
-	'</ul>'
-/, 'standalone item';
-)
-
-#`(
 =begin pod
     this is code
 
@@ -1275,83 +1462,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /:s
 		'===yay!'
 	'-->'
 /, 'delimited comment';
-
-#`(
-=begin pod
-The seven suspects are:
-
-=item  Happy
-=item  Dopey
-=item  Sleepy
-=item  Bashful
-=item  Sneezy
-=item  Grumpy
-=item  Keyser Soze
-=end pod
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<div>'
-		'<p>' 'The seven suspects are:' '</p>'
-		'<ul>'
-			'<li>' 'Happy' '</li>'
-			'<li>' 'Dopey' '</li>'
-			'<li>' 'Sleepy' '</li>'
-			'<li>' 'Bashful' '</li>'
-			'<li>' 'Sneezy' '</li>'
-			'<li>' 'Grumpy' '</li>'
-			'<li>' 'Keyser Soze' '</li>'
-		'</ul>'
-	'</div>'
-/, 'one-level list';
-)
-
-#`(
-=begin pod
-=item1  Animal
-=item2     Vertebrate
-=item2     Invertebrate
-
-=item1  Phase
-=item2     Solid
-=item2     Liquid
-=item2     Gas
-=item2     Chocolate
-=end pod
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<ul>'
-		'<li>' 'Animal' '</li>'
-		'<ul>'
-			'<li>' 'Vertebrate' '</li>'
-			'<li>' 'Invertebrate' '</li>'
-		'</ul>'
-		'<li>' 'Phase' '</li>'
-		'<ul>'
-			'<li>' 'Solid' '</li>'
-			'<li>' 'Liquid' '</li>'
-			'<li>' 'Gas' '</li>'
-			'<li>' 'Chocolate' '</li>'
-		'</ul>'
-	'</ul>'
-/, 'nested lists';
-)
-
-#`(
-=begin pod
-=comment CORRECT...
-=begin item1
-The choices are:
-=end item1
-=item2 Liberty
-=item2 Death
-=item2 Beer
-=item2 Cake
-=end pod
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-1
-/;
-)
 
 #`(
 # XXX Those items are :numbered in S26, but we're waiting with block
