@@ -1,4 +1,5 @@
 use v6;
+use Pod::To::Tree;
 use Pod::To::HTMLBody;
 use Test;
 

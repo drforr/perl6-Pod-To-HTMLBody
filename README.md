@@ -4,6 +4,10 @@ Pod-To-HTMLBody
 
 Generates a HTML <body/> fragment
 
+Please note that there's a Pod::To::Tree module that will get broken out once
+it handles the test cases, and Pod::To::HTMLBody will use that instead of
+surrounding the ::To::Tree module.
+
 Installation
 ============
 
