@@ -96,12 +96,72 @@ my role Node::Visualization {
 	method indent( Int $layer ) { ' ' xx $layer }
 
 	method display( $layer ) {
+		my $ok-parent = 'XXX';
+		if $.parent {
+			my $current-child = $.parent.first-child;
+			# XXX it could easily walk to some other layer if the
+			# XXX first-child is pointing incorrectly.
+			# XXX
+			while $current-child {
+				if $current-child === self {
+					$ok-parent = 'ok';
+					last;
+				}
+				$current-child = $current-child.next-sibling;
+			}
+		}
+		else {
+			$ok-parent = 'ok';
+		}
+		my $ok-next-sibling = 'ok';
+		if $.next-sibling {
+			if $.next-sibling.previous-sibling {
+				$ok-next-sibling = 'XXX' if
+					$.next-sibling.previous-sibling !=== self;
+			}
+			else {
+				$ok-next-sibling = 'XXX';
+			}
+		}
+		my $ok-previous-sibling = 'ok';
+		if $.previous-sibling {
+			if $.previous-sibling.next-sibling {
+				$ok-previous-sibling = 'XXX' if
+					$.previous-sibling.next-sibling !=== self;
+			}
+			else {
+				$ok-previous-sibling = 'XXX';
+			}
+		}
+		my $ok-first-child = 'ok';
+		if $.first-child {
+			if $.first-child.parent {
+				$ok-first-child = 'XXX' if
+					$.first-child.parent !=== self;
+			}
+			else {
+				$ok-first-child = 'XXX';
+			}
+		}
+		my $ok-last-child = 'ok';
+		if $.last-child {
+			if $.last-child.parent {
+				$ok-last-child = 'XXX' if
+					$.last-child.parent !=== self;
+			}
+			else {
+				$ok-last-child = 'XXX';
+			}
+		}
 		my @layer =
-			self.WHAT.perl ~ "(\n",
-			'  ' ~ self.parent ?? ':parent()' !! ':!parent',
-			")\n";
+			self ~ ':',
+			" :parent({$.parent // ''}) $ok-parent",
+			" :previous-sibling({$.previous-sibling // ''}) $ok-previous-sibling",
+			" :next-sibling({$.next-sibling // ''}) $ok-next-sibling",
+			" :first-child({$.first-child // ''}) $ok-first-child",
+			" :last-child({$.last-child // ''}) $ok-last-child"
 		;
-		return join( '', map { self.indent( $layer ) ~ $_ }, @layer );
+		return join( '', map { self.indent( $layer ) ~ $_ ~ "\n" }, @layer );
 	}
 
 	method visualize( $layer = 0 ) {
@@ -351,32 +411,8 @@ my role Node-Helpers {
 class Pod::To::Tree {
 	also does Node-Helpers;
 
-	sub add-list( $tree ) {
-		my $child = $tree.first-child;
-		while $child {
-			add-list( $child );
-			if $child ~~ Node::Item {
-				my $new-list = Node::List.new;
-				$new-list.add-below( $child );
-				$child.replace-with( $new-list );
-			}
-			$child = $child.next-sibling;
-		}
-	}
-
-	sub fixup-root-item( $tree ) {
-		if $tree ~~ Node::Item {
-			my $new-list = Node::List.new;
-			$new-list.add-below( $tree );
-			return $new-list;
-		}
-		$tree;
-	}
-
 	method to-tree( $pod ) {
 		my $tree = self.to-node( $pod );
-		$tree = fixup-root-item( $tree );
-		add-list( $tree );
 		return $tree;
 	}
 }

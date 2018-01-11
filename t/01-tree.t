@@ -912,11 +912,7 @@ subtest 'item', {
 
 	# Isn't part of the Roast suite, but I need it to check some edge cases.
 	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-		'<ul>'
-			'<li>'
-				'<p>' 'foo' '</p>'
-			'</li>'
-		'</ul>'
+		'<li>' 'foo' '</li>'
 	/, 'standalone item';
 
 =begin pod
@@ -927,16 +923,11 @@ subtest 'item', {
 	# Isn't part of the Roast suite, but I need it to check some edge cases.
 	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 		'<div>'
-			'<ul>'
-				'<li>'
-					'<p>' 'foo' '</p>'
-					'<p>' 'bar' '</p>'
-				'</li>'
-			'</ul>'
+			'<li>' 'foo' '</li>'
+			'<li>' 'bar' '</li>'
 		'</div>'
 	/, 'items';
 
-#`(
 =begin pod
 The seven suspects are:
 
@@ -952,18 +943,15 @@ The seven suspects are:
 	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 		'<div>'
 			'<p>' 'The seven suspects are:' '</p>'
-			'<ul>'
-				'<li>' 'Happy' '</li>'
-				'<li>' 'Dopey' '</li>'
-				'<li>' 'Sleepy' '</li>'
-				'<li>' 'Bashful' '</li>'
-				'<li>' 'Sneezy' '</li>'
-				'<li>' 'Grumpy' '</li>'
-				'<li>' 'Keyser Soze' '</li>'
-			'</ul>'
+			'<li>' 'Happy' '</li>'
+			'<li>' 'Dopey' '</li>'
+			'<li>' 'Sleepy' '</li>'
+			'<li>' 'Bashful' '</li>'
+			'<li>' 'Sneezy' '</li>'
+			'<li>' 'Grumpy' '</li>'
+			'<li>' 'Keyser Soze' '</li>'
 		'</div>'
 	/, 'one-level list';
-)
 
 #`(
 =begin pod
@@ -979,19 +967,17 @@ The seven suspects are:
 =end pod
 
 	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<li>' 'Animal' '</li>'
 		'<ul>'
-			'<li>' 'Animal' '</li>'
-			'<ul>'
-				'<li>' 'Vertebrate' '</li>'
-				'<li>' 'Invertebrate' '</li>'
-			'</ul>'
-			'<li>' 'Phase' '</li>'
-			'<ul>'
-				'<li>' 'Solid' '</li>'
-				'<li>' 'Liquid' '</li>'
-				'<li>' 'Gas' '</li>'
-				'<li>' 'Chocolate' '</li>'
-			'</ul>'
+			'<li>' 'Vertebrate' '</li>'
+			'<li>' 'Invertebrate' '</li>'
+		'</ul>'
+		'<li>' 'Phase' '</li>'
+		'<ul>'
+			'<li>' 'Solid' '</li>'
+			'<li>' 'Liquid' '</li>'
+			'<li>' 'Gas' '</li>'
+			'<li>' 'Chocolate' '</li>'
 		'</ul>'
 	/, 'nested lists';
 )
