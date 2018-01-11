@@ -14,7 +14,6 @@ subtest 'tree manipulation', {
 		nok $new-list.previous-sibling;
 		nok $new-list.next-sibling;
 		is $new-list.first-child, $item;
-		is $new-list.last-child, $item;
 	};
 
 	subtest 'links from item', {
@@ -22,7 +21,6 @@ subtest 'tree manipulation', {
 		nok $item.previous-sibling;
 		nok $item.next-sibling;
 		nok $item.first-child;
-		nok $item.last-child;
 	};
 
 	my $new-item = Node::Item.new;
@@ -33,7 +31,6 @@ subtest 'tree manipulation', {
 		nok $new-list.previous-sibling;
 		nok $new-list.next-sibling;
 		is $new-list.first-child, $new-item;
-		is $new-list.last-child, $new-item;
 
 	};
 
@@ -42,7 +39,6 @@ subtest 'tree manipulation', {
 		nok $new-item.previous-sibling;
 		nok $new-item.next-sibling;
 		nok $new-item.first-child;
-		nok $new-item.last-child;
 	};
 
 	my $item2 = Node::Item.new;
@@ -53,7 +49,6 @@ subtest 'tree manipulation', {
 		nok $new-list.previous-sibling;
 		nok $new-list.next-sibling;
 		is $new-list.first-child, $new-item;
-		is $new-list.last-child, $item2;
 	};
 
 	# Root <-
@@ -78,21 +73,18 @@ subtest 'tree manipulation', {
 		nok $the-root.previous-sibling;
 		nok $the-root.next-sibling;
 		is $the-root.first-child, $the-list;
-		is $the-root.last-child, $the-list;
 	};
 	subtest 'list', {
 		is $the-list.parent, $the-root;
 		nok $the-list.previous-sibling;
 		nok $the-list.next-sibling;
 		is $the-list.first-child, $the-item;
-		is $the-list.last-child, $the-item;
 	};
 	subtest 'item', {
 		is $the-item.parent, $the-list;
 		nok $the-item.previous-sibling;
 		nok $the-item.next-sibling;
 		nok $the-item.first-child;
-		nok $the-item.last-child;
 	};
 };
 

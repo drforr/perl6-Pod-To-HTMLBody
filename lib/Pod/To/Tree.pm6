@@ -28,6 +28,10 @@ So this module makes certain that each node (except for the root) has a valid C<
 
 The other motivation is a bit more subtle, and focuses on the L<Pod::Table> class. It has both a C<.header> and C<.contents> attribute, and I'd rather have the <.contents> attribute B<always> contain the text associated with the object. So, rather than a single L<Node::Table> mimic with a C<.header>, the L<Node::Table> contains an optional L<Node::Table::Header> object and an equally-optional (ya never know, someone may write a POD table with headers, mean to fill in the content later, and never does) L<Node::Table::Body> object.
 
+As a final note, having 'next' and 'previous' references means that you can pass an arbitrary C<Node::> node around and you'll always be able to get to the next and previous index, not so with arrays. I mean, you could have each node have its index, and then follow the parent reference and then take index N+1 of its C<.content> array, but that's a bit of overkill.
+
+On the other hand it's probably not going to be a common operation once the tree is written out, so I might just be overthinking that a tad.
+
 =head1 Layout
 
 This is a bit spread-out, but it does make walking the tree of objects dead-simple. In fact, here's how you do it:
@@ -68,10 +72,6 @@ Each node has:
 
   The first content node, or Nil if it has no contents.
 
-=item .last-child
-
-  The last content node, or Nil if it has no contents. Kind of pointless unless you want to iterate backwards through the tree, but it's there if you need it.
-
 Simple tree-walking code is given above, in case you don't want to mess with the algorithm, and it even generates something like XML/HTML. The nodes correspond pretty much to how HTML would lay out, but you're welcome to interpret the nodes as you like.
 
 =head1 METHODS
@@ -87,10 +87,10 @@ Given Perl 6 POD, return a different tree structure, along with some useful anno
 #                       ^
 #                       |
 # previous-sibling <- $node -> next-sibling
-#                     |    \
-#                     |     --------,
-#                     V              \
-#                    first-child -> last-child
+#                       |
+#                       |
+#                       V
+#                    first-child
 #
 my role Node::Visualization {
 	method indent( Int $layer ) { ' ' xx $layer }
@@ -143,23 +143,12 @@ my role Node::Visualization {
 				$ok-first-child = 'XXX';
 			}
 		}
-		my $ok-last-child = 'ok';
-		if $.last-child {
-			if $.last-child.parent {
-				$ok-last-child = 'XXX' if
-					$.last-child.parent !=== self;
-			}
-			else {
-				$ok-last-child = 'XXX';
-			}
-		}
 		my @layer =
 			self ~ ':',
 			" :parent({$.parent // ''}) $ok-parent",
 			" :previous-sibling({$.previous-sibling // ''}) $ok-previous-sibling",
 			" :next-sibling({$.next-sibling // ''}) $ok-next-sibling",
 			" :first-child({$.first-child // ''}) $ok-first-child",
-			" :last-child({$.last-child // ''}) $ok-last-child"
 		;
 		return join( '', map { self.indent( $layer ) ~ $_ ~ "\n" }, @layer );
 	}
@@ -180,19 +169,15 @@ class Node {
 	has $.first-child is rw;
 	has $.next-sibling is rw;
 	has $.previous-sibling is rw;
-	has $.last-child is rw;
 
 	method replace-with( $node ) {
 		$node.parent = $.parent;
 		$node.previous-sibling = $.previous-sibling;
 		$node.next-sibling = $.next-sibling;
-		# Don't touch first- and last-child.
+		# Don't touch first-child.
 
 		if $.parent and $.parent.first-child === self {
 			$.parent.first-child = $node;
-		}
-		if $.parent and $.parent.last-child === self {
-			$.parent.last-child = $node;
 		}
 		if $.previous-sibling {
 			$.previous-sibling.next-sibling = $node;
@@ -202,18 +187,25 @@ class Node {
 		}
 	}
 
+	method last-sibling {
+		my $last-sibling = self;
+		while $last-sibling.next-sibling {
+			$last-sibling = $last-sibling.next-sibling;
+		}
+		$last-sibling;
+	}
+
 	method add-below( $to-insert ) {
 		return unless $to-insert;
 		$to-insert.parent = self;
 		$to-insert.next-sibling = Nil;
 		if $.first-child {
-			$to-insert.previous-sibling = $.last-child;
-			$.last-child.next-sibling = $to-insert;
-			$.last-child = $to-insert;
+			my $last-child = $.first-child.last-sibling;
+			$to-insert.previous-sibling = $last-child;
+			$last-child.next-sibling = $to-insert;
 		}
 		else {
 			$.first-child = $to-insert;
-			$.last-child = $to-insert;
 		}
 	}
 }
