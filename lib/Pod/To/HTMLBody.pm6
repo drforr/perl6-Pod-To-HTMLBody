@@ -30,6 +30,7 @@ class Pod::To::HTMLBody {
 			when Node::Comment { '<!--' }
 			when Node::Document { '<div>' }
 			when Node::Entity { $node.contents } # XXX fix later
+			when Node::Italic { '<i>' }
 			when Node::Item { '<li>' }
 			when Node::Link { qq[<a href="{$node.url}">] }
 			when Node::List { '<ul>' }
@@ -48,6 +49,7 @@ class Pod::To::HTMLBody {
 			when Node::Table::Data { '<td>' }
 			when Node::Table::Body { '' }
 			when Node::Table::Body::Row { '<tr>' }
+			when Node::Underline { '<u>' }
 			default {
 				die "Don't know how to start HTML for $node!"
 			}
@@ -62,6 +64,7 @@ class Pod::To::HTMLBody {
 	multi method HTML-end( Node::Document $node ) { '</div>' }
 	multi method HTML-end( Node::Entity $node ) { '' }
 	multi method HTML-end( Node::Item $node ) { '</li>' }
+	multi method HTML-end( Node::Italic $node ) { '</i>' }
 	multi method HTML-end( Node::Link $node ) { '</a>' }
 	multi method HTML-end( Node::List $node ) { '</ul>' }
 	# XXX hack to show parent usage
@@ -77,6 +80,7 @@ class Pod::To::HTMLBody {
 	multi method HTML-end( Node::Table::Data $node ) { '</td>' }
 	multi method HTML-end( Node::Table::Body $node ) { '' }
 	multi method HTML-end( Node::Table::Body::Row $node ) { '</tr>' }
+	multi method HTML-end( Node::Underline $node ) { '</u>' }
 	multi method HTML-end( $node ) {
 		die "Don't know how to end HTML for $node!"
 	}

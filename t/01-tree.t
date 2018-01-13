@@ -1539,6 +1539,20 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 /, 'inline bold';
 
 =pod
+I<Render unto Caesar in italic>
+
+like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+	'<i>' 'Render unto Caesar in italic' '</i>'
+/, 'inline italic';
+
+=pod
+U<Ignore this!>
+
+like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+	'<u>' 'Ignore this!' '</u>'
+/, 'inline underline';
+
+=pod
 The basic C<ln> command is: C<ln> B<R<source_file> R<target_file>>
 
 like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /:s

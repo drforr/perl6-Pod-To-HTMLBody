@@ -210,7 +210,9 @@ class Node {
 	}
 }
 
-class Node::Bold is Node { }
+class Node::FormattingCode is Node { has $.type }
+
+class Node::Bold is Node::FormattingCode { has $.type = 'B' }
 
 class Node::Code is Node { }
 
@@ -221,6 +223,8 @@ class Node::Document is Node { }
 class Node::Entity is Node {
 	has $.contents;
 }
+
+class Node::Italic is Node::FormattingCode { has $.type = 'I' }
 
 class Node::Item is Node { }
 
@@ -259,6 +263,8 @@ class Node::Table::Body is Node { }
 
 class Node::Table::Body::Row is Node { }
 
+class Node::Underline is Node::FormattingCode { has $.type = 'U' }
+
 my role Node-Helpers {
 	method add-contents-below( $node, $pod ) {
 		for @( $pod.contents ) -> $element {
@@ -282,11 +288,20 @@ my role Node-Helpers {
 		$node;
 	}
 
+	multi method to-node( Pod::Block::Named $pod, 'pod' ) {
+		my $node = Node::Document.new;
+		self.add-contents-below( $node, $pod );
+		$node;
+	}
+
+	multi method to-node( Pod::Block::Named $pod, Str $section ) {
+		my $node = Node::Section.new( :title( $pod.name ) );
+		self.add-contents-below( $node, $pod );
+		$node;
+	}
+
 	multi method to-node( Pod::Block::Named $pod ) {
-		given $pod.name {
-			when 'pod' { self.new-Node-Document( $pod ) }
-			default { self.new-Node-Section( $pod ) }
-		}
+		self.to-node( $pod, $pod.name );
 	}
 
 	multi method to-node( Pod::Block::Para $pod ) {
@@ -304,38 +319,58 @@ my role Node-Helpers {
 		$node;
 	}
 
+	multi method to-node( Pod::FormattingCode $pod, 'B' ) {
+		my $node = Node::Bold.new;
+		self.add-contents-below( $node, $pod );
+		$node;
+	}
+
+	multi method to-node( Pod::FormattingCode $pod, 'C' ) {
+		my $node = Node::Code.new;
+		self.add-contents-below( $node, $pod );
+		$node;
+	}
+
+	# XXX This should get folded back into the text.
+	multi method to-node( Pod::FormattingCode $pod, 'E' ) {
+		my $node = Node::Entity.new(
+			:contents( $pod.contents )
+		);
+		$node;
+	}
+
+	multi method to-node( Pod::FormattingCode $pod, 'I' ) {
+		my $node = Node::Italic.new;
+		self.add-contents-below( $node, $pod );
+		$node;
+	}
+
+	multi method to-node( Pod::FormattingCode $pod, 'L' ) {
+		my $node = Node::Link.new(
+			:url( $pod.meta )
+		);
+		self.add-contents-below( $node, $pod );
+		$node;
+	}
+
+	multi method to-node( Pod::FormattingCode $pod, 'R' ) {
+		my $node = Node::Reference.new;
+		self.add-contents-below( $node, $pod );
+		$node;
+	}
+
+	multi method to-node( Pod::FormattingCode $pod, 'U' ) {
+		my $node = Node::Underline.new;
+		self.add-contents-below( $node, $pod );
+		$node;
+	}
+
+	multi method to-node( Pod::FormattingCode $pod, Str $unknown ) {
+		die "Unknown formatting code '$unknown' for $pod"
+	}
+
 	multi method to-node( Pod::FormattingCode $pod ) {
-		given $pod.type {
-			when 'B' {
-				my $node = Node::Bold.new;
-				self.add-contents-below( $node, $pod );
-				$node;
-			}
-			when 'C' {
-				my $node = Node::Code.new;
-				self.add-contents-below( $node, $pod );
-				$node;
-			}
-			when 'E' {
-				my $node = Node::Entity.new(
-					:contents( $pod.contents )
-				);
-				$node;
-			}
-			when 'L' {
-				my $node = Node::Link.new(
-					:url( $pod.meta )
-				);
-				self.add-contents-below( $node, $pod );
-				$node;
-			}
-			when 'R' {
-				my $node = Node::Reference.new;
-				self.add-contents-below( $node, $pod );
-				$node;
-			}
-			default { self.new-Node-Section( $pod ) }
-		}
+		self.to-node( $pod, $pod.type );
 	}
 
 	multi method to-node( Pod::Heading $pod ) {
@@ -384,18 +419,6 @@ my role Node-Helpers {
 				self.new-Node-Table-Body-Row( $element )
 			);
 		}
-		$node;
-	}
-
-	method new-Node-Document( $pod ) {
-		my $node = Node::Document.new;
-		self.add-contents-below( $node, $pod );
-		$node;
-	}
-
-	method new-Node-Section( $pod ) {
-		my $node = Node::Section.new( :title( $pod.name ) );
-		self.add-contents-below( $node, $pod );
 		$node;
 	}
 }
