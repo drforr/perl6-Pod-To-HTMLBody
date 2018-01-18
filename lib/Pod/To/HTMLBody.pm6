@@ -27,6 +27,7 @@ class Pod::To::HTMLBody {
 		given $node {
 			when Node::Bold { '<b>' }
 			when Node::Code { '<code>' }
+			when Node::Config { '' }
 			when Node::Comment { '<!--' }
 			when Node::Document { '<div>' }
 			when Node::Entity { $node.contents } # XXX fix later
@@ -60,6 +61,7 @@ class Pod::To::HTMLBody {
 	#
 	multi method HTML-end( Node::Bold $node ) { '</b>' }
 	multi method HTML-end( Node::Code $node ) { '</code>' }
+	multi method HTML-end( Node::Config $node ) { '' }
 	multi method HTML-end( Node::Comment $node ) { '-->' }
 	multi method HTML-end( Node::Document $node ) { '</div>' }
 	multi method HTML-end( Node::Entity $node ) { '' }

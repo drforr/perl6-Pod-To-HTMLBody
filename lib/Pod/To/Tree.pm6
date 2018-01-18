@@ -165,10 +165,19 @@ my role Node::Visualization {
 }
 class Node {
 	also does Node::Visualization;
+
 	has $.parent is rw;
 	has $.first-child is rw;
 	has $.next-sibling is rw;
 	has $.previous-sibling is rw;
+
+	has %.config is rw;
+
+	method new-from-pod( $pod ) {
+		return self.bless(
+			:config( $pod.config )
+		)
+	}
 
 	method replace-with( $node ) {
 		$node.parent = $.parent;
@@ -215,6 +224,11 @@ class Node::FormattingCode is Node { has $.type }
 class Node::Bold is Node::FormattingCode { has $.type = 'B' }
 
 class Node::Code is Node { }
+
+class Node::Config is Node {
+	has $.type;
+	has $.like;
+}
 
 class Node::Comment is Node { }
 
@@ -265,6 +279,69 @@ class Node::Table::Body::Row is Node { }
 
 class Node::Underline is Node::FormattingCode { has $.type = 'U' }
 
+my role Node-FormattingCode-Helpers {
+	multi method to-node( Pod::FormattingCode $pod ) {
+		self.to-node( $pod, $pod.type );
+	}
+
+	multi method to-node( Pod::FormattingCode $pod, 'B' ) {
+		my $node = Node::Bold.new-from-pod( $pod );
+		self.add-contents-below( $node, $pod );
+		$node;
+	}
+
+	multi method to-node( Pod::FormattingCode $pod, 'C' ) {
+		my $node = Node::Code.new-from-pod( $pod );
+		self.add-contents-below( $node, $pod );
+		$node;
+	}
+
+	# XXX This should get folded back into the text.
+	multi method to-node( Pod::FormattingCode $pod, 'E' ) {
+		my $node = Node::Entity.new(
+			:config( $pod.config ),
+			:contents( $pod.contents )
+		);
+		$node;
+	}
+
+	multi method to-node( Pod::FormattingCode $pod, 'I' ) {
+		my $node = Node::Italic.new-from-pod( $pod );
+		self.add-contents-below( $node, $pod );
+		$node;
+	}
+
+	multi method to-node( Pod::FormattingCode $pod, 'L' ) {
+		my $node = Node::Link.new(
+			:config( $pod.config ),
+			:url( $pod.meta )
+		);
+		self.add-contents-below( $node, $pod );
+		$node;
+	}
+
+	multi method to-node( Pod::FormattingCode $pod, 'R' ) {
+		my $node = Node::Reference.new-from-pod( $pod );
+		self.add-contents-below( $node, $pod );
+		$node;
+	}
+
+	multi method to-node( Pod::FormattingCode $pod, 'U' ) {
+		my $node = Node::Underline.new-from-pod( $pod );
+		self.add-contents-below( $node, $pod );
+		$node;
+	}
+
+	multi method to-node( Pod::FormattingCode $pod, 'Z' ) {
+		my $node = Node::Comment.new-from-pod( $pod );
+		self.add-contents-below( $node, $pod );
+		$node;
+	}
+
+	multi method to-node( Pod::FormattingCode $pod, Str $unknown ) {
+		die "Unknown formatting code '$unknown' for $pod"
+	}
+}
 my role Node-Helpers {
 	method add-contents-below( $node, $pod ) {
 		for @( $pod.contents ) -> $element {
@@ -273,29 +350,32 @@ my role Node-Helpers {
 	}
 
 	multi method to-node( $pod ) {
-		die "Unknown Pod type " ~ $pod.gist;
+		die "Unknown Pod type " ~ $pod.perl;
 	}
 
 	multi method to-node( Pod::Block::Code $pod ) {
-		my $node = Node::Code.new;
+		my $node = Node::Code.new-from-pod( $pod );
 		self.add-contents-below( $node, $pod );
 		$node;
 	}
 
 	multi method to-node( Pod::Block::Comment $pod ) {
-		my $node = Node::Comment.new;
+		my $node = Node::Comment.new-from-pod( $pod );
 		self.add-contents-below( $node, $pod );
 		$node;
 	}
 
 	multi method to-node( Pod::Block::Named $pod, 'pod' ) {
-		my $node = Node::Document.new;
+		my $node = Node::Document.new-from-pod( $pod );
 		self.add-contents-below( $node, $pod );
 		$node;
 	}
 
 	multi method to-node( Pod::Block::Named $pod, Str $section ) {
-		my $node = Node::Section.new( :title( $pod.name ) );
+		my $node = Node::Section.new(
+			:config( $pod.config ),
+			:title( $pod.name )
+		);
 		self.add-contents-below( $node, $pod );
 		$node;
 	}
@@ -305,82 +385,67 @@ my role Node-Helpers {
 	}
 
 	multi method to-node( Pod::Block::Para $pod ) {
-		my $node = Node::Paragraph.new;
+		my $node = Node::Paragraph.new-from-pod( $pod );
 		self.add-contents-below( $node, $pod );
+		$node;
+	}
+
+	method new-Node-Table-Body-Row( $pod ) {
+		my $node = Node::Table::Body::Row.new;
+		for @( $pod ) -> $element {
+			my $data = Node::Table::Data.new;
+			$data.add-below( self.to-node( $element ) );
+			$node.add-below( $data );
+		}
 		$node;
 	}
 
 	multi method to-node( Pod::Block::Table $pod ) {
-		my $node = Node::Table.new;
-		$node.add-below( self.new-Node-Table-Header( $pod ) )
-			if $pod.headers.elems;
-		$node.add-below( self.new-Node-Table-Body( $pod ) )
-			if $pod.contents.elems;
+		my $node = Node::Table.new-from-pod( $pod );
+		if $pod.headers {
+			my $header = Node::Table::Header.new;
+			for @( $pod.headers ) -> $element {
+				my $data = Node::Table::Data.new;
+				$data.add-below( self.to-node( $element ) );
+				$header.add-below( $data );
+			}
+			$node.add-below( $header );
+		}
+
+		if $pod.contents {
+			my $body = Node::Table::Body.new;
+			for @( $pod.contents ) -> $element {
+				$body.add-below( 
+					self.new-Node-Table-Body-Row( $element )
+				);
+			}
+			$node.add-below( $body );
+		}
 		$node;
 	}
 
-	multi method to-node( Pod::FormattingCode $pod, 'B' ) {
-		my $node = Node::Bold.new;
-		self.add-contents-below( $node, $pod );
-		$node;
-	}
-
-	multi method to-node( Pod::FormattingCode $pod, 'C' ) {
-		my $node = Node::Code.new;
-		self.add-contents-below( $node, $pod );
-		$node;
-	}
-
-	# XXX This should get folded back into the text.
-	multi method to-node( Pod::FormattingCode $pod, 'E' ) {
-		my $node = Node::Entity.new(
-			:contents( $pod.contents )
+	multi method to-node( Pod::Config $pod ) {
+		Node::Config.new(
+			:config( $pod.config ),
+			:type( $pod.type ),
+			:like( $pod.<like> )
 		);
-		$node;
-	}
-
-	multi method to-node( Pod::FormattingCode $pod, 'I' ) {
-		my $node = Node::Italic.new;
-		self.add-contents-below( $node, $pod );
-		$node;
-	}
-
-	multi method to-node( Pod::FormattingCode $pod, 'L' ) {
-		my $node = Node::Link.new(
-			:url( $pod.meta )
-		);
-		self.add-contents-below( $node, $pod );
-		$node;
-	}
-
-	multi method to-node( Pod::FormattingCode $pod, 'R' ) {
-		my $node = Node::Reference.new;
-		self.add-contents-below( $node, $pod );
-		$node;
-	}
-
-	multi method to-node( Pod::FormattingCode $pod, 'U' ) {
-		my $node = Node::Underline.new;
-		self.add-contents-below( $node, $pod );
-		$node;
-	}
-
-	multi method to-node( Pod::FormattingCode $pod, Str $unknown ) {
-		die "Unknown formatting code '$unknown' for $pod"
-	}
-
-	multi method to-node( Pod::FormattingCode $pod ) {
-		self.to-node( $pod, $pod.type );
 	}
 
 	multi method to-node( Pod::Heading $pod ) {
-		my $node = Node::Heading.new( :level( $pod.level ) );
+		my $node = Node::Heading.new(
+			:config( $pod.config ),
+			:level( $pod.level )
+		);
 		self.add-contents-below( $node, $pod );
 		$node;
 	}
 
 	multi method to-node( Pod::Item $pod ) {
-		my $node = Node::Item.new( :level( $pod.level ) );
+		my $node = Node::Item.new(
+			:config( $pod.config ),
+			:level( $pod.level )
+		);
 		self.add-contents-below( $node, $pod );
 		$node;
 	}
@@ -389,42 +454,11 @@ my role Node-Helpers {
 		my $node = Node::Text.new( :value( $pod ) );
 		$node;
 	}
-
-	method new-Node-Table-Data( $pod ) {
-		my $node = Node::Table::Data.new;
-		$node.add-below( self.to-node( $pod ) );
-		$node;
-	}
-
-	method new-Node-Table-Header( $pod ) {
-		my $node = Node::Table::Header.new;
-		for @( $pod.headers ) -> $element {
-			$node.add-below( self.new-Node-Table-Data( $element ) );
-		}
-		$node;
-	}
-
-	method new-Node-Table-Body-Row( $pod ) {
-		my $node = Node::Table::Body::Row.new;
-		for @( $pod ) -> $element {
-			$node.add-below( self.new-Node-Table-Data( $element ) );
-		}
-		$node;
-	}
-
-	method new-Node-Table-Body( $pod ) {
-		my $node = Node::Table::Body.new;
-		for @( $pod.contents ) -> $element {
-			$node.add-below( 
-				self.new-Node-Table-Body-Row( $element )
-			);
-		}
-		$node;
-	}
 }
 
 class Pod::To::Tree {
 	also does Node-Helpers;
+	also does Node-FormattingCode-Helpers;
 
 	method to-tree( $pod ) {
 		my $tree = self.to-node( $pod );

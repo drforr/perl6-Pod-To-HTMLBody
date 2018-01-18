@@ -89,6 +89,7 @@ subtest 'tree manipulation', {
 };
 
 my $pod-counter = 0;
+my $root;
 my $r;
 
 subtest 'paragraphs', {
@@ -393,7 +394,6 @@ Which, as we all know...
 		'</section>'
 	/, 'nested paragraphs';
 
-# from S26
 =table_not
     Constants 1
     Variables 10
@@ -405,11 +405,10 @@ Which, as we all know...
 			'<h1>' 'table_not' '</h1>'
 			'<p>' 'Constants 1 Variables 10 Subroutines 33 Everything else 57' '</p>'
 		'</section>'
-	/, 'not a table';
+	/, 'S26 counterexample - not a table';
 };
 
 subtest 'table', {
-# test fix for RT #124403 - incorrect table parse:
 =table
 +-----+----+---+
 |   a | b  | c |
@@ -432,10 +431,8 @@ subtest 'table', {
 			'<tr>' '<td>' '| dz | 9 | Y |'   '</td>' '</tr>'
 			'<tr>' '<td>' '+-----+----+---+' '</td>' '</tr>'
 		'</table>'
-	/, 'single rows';
+	/, 'RT #124403 - incorrect table parse';
 
-# test fix for issue RT #129862
-# uneven rows
 =begin table
 a | b | c
 l | m | n
@@ -459,10 +456,8 @@ x | y
 				'<td>' 'y' '</td>'
 			'</tr>'
 		'</table>'
-	/, 'short row';
+	/, 'RT #129862 short row';
 
-# test fix for RT #132341
-# also tests fix for RT #129862
 =table
     X   O
    ===========
@@ -487,10 +482,9 @@ x | y
 				'<td>' 'X' '</td>'
 			'</tr>'
 		'</table>'
-	/, 'RT #132341 regression';
+	/, 'RT #132341 rows, also #129862';
 
-#`(
-# test fix for RT #132348 (allow inline Z comments)
+# XXX The 'Z<..>' aren't being parsed by Perl...
 # also tests fix for RT #129862
 =begin table
 a | b | c
@@ -499,11 +493,24 @@ x | y      Z<a comment> Z<another comment>
 =end table
 
 like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-1
-/;
-)
+	'<table>'
+		'<tr>'
+			'<td>' 'a' '</td>'
+			'<td>' 'b' '</td>'
+			'<td>' 'c' '</td>'
+		'</tr>'
+		'<tr>'
+			'<td>' 'l' '</td>'
+			'<td>' 'm' '</td>'
+			'<td>' 'n' '</td>'
+		'</tr>'
+		'<tr>'
+			'<td>' 'x' '</td>'
+			'<td>' 'y Z<a comment> Z<another comment>' '</td>'
+		'</tr>'
+	'</table>'
+/, 'RT #132348 allow inline Z<> comments';
 
-# a single column table, no headers
 =begin table
 a
 =end table
@@ -514,9 +521,8 @@ a
 				'<td>' 'a' '</td>'
 			'</tr>'
 		'</table>'
-	/, 'single-cell table';
+	/, 'single-column table';
 
-# a single column table, with header
 =begin table
 b
 -
@@ -532,9 +538,8 @@ a
 				'<td>' 'a' '</td>'
 			'</tr>'
 		'</table>'
-	/, 'header';
+	/, 'single-column table with header';
 
-# test fix for rakudo repo issue #1282:
 # need to handle table cells with char column separators as data
 # example table from <https://docs.perl6.org/language/regexes>
 # WITHOUT the escaped characters (results in an extra, unwanted, incorrect column)
@@ -579,7 +584,7 @@ a
 				'<td>' 'symmetric set intersection / XOR' '</td>'
 			'</tr>'
 		'</table>'
-	/, 'header, entities and gaps';
+	/, '#1282 header, entities and gaps';
 
 # WITHOUT the escaped characters and without the non-breaking spaces
 # (results in the desired table)
@@ -719,7 +724,6 @@ a
 		'</table>'
 	/, 'simple table';
 
-#`(
 =table
     Constants           1
     Variables           10
@@ -727,9 +731,25 @@ a
     Everything else     57
 
 like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-1
-/;
-)
+	'<table>'
+		'<tr>'
+			'<td>' 'Constants' '</td>'
+			'<td>' '1' '</td>'
+		'</tr>'
+		'<tr>'
+			'<td>' 'Variables' '</td>'
+			'<td>' '10' '</td>'
+		'</tr>'
+		'<tr>'
+			'<td>' 'Subroutines' '</td>'
+			'<td>' '33' '</td>'
+		'</tr>'
+		'<tr>'
+			'<td>' 'Everything else' '</td>'
+			'<td>' '57' '</td>'
+		'</tr>'
+	'</table>'
+/, 'simple two-column table';
 
 =for table
     mouse    | mice
@@ -880,7 +900,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 		'</table>'
 	/, 'tic-tac-toe with empty squares';
 
-#`(
 # test for:
 #   RT #126740 - Pod::Block::Table node caption property is not populated properly
 # Note that the caption property is just one of the table's %config key/value
@@ -893,10 +912,21 @@ bar
 
 =end table
 
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-1
-/;
-)
+	$root = Pod::To::Tree.to-tree( $=pod[$pod-counter] );
+	isa-ok $root, Node::Table;
+	is $root.config.<bar>, 0;
+	# XXX This is wrong. There's a .caption available, it should be used.
+	is $root.config.<caption>, 'foo';
+	like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+		'<table>'
+			'<tr>'
+				'<td>' 'foo' '</td>'
+			'</tr>'
+			'<tr>'
+				'<td>' 'bar' '</td>'
+			'</tr>'
+		'</table>'
+	/, 'RT #126740 caption propery';
 };
 
 subtest 'item', {
@@ -1143,12 +1173,10 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 	'</div>'
 /, 'multiple blocks';
 
-#`(
 # Without the =begin..=end directives here, each =for is its own directive.
 # It might not quite be in the spirit of the test, XXX
 #
 =begin pod
-# RT#131400
 =for pod
 =for nested
 =for para :nested(1)
@@ -1157,9 +1185,17 @@ E<a;b>E<a;b;c>
 =end pod
 
 like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-1
-/;
-)
+	'<div>'
+		'<div>' '</div>'
+		'<section>'
+			'<h1>' 'nested' '</h1>'
+		'</section>'
+		'<section>'
+			'<h1>' 'para' '</h1>'
+			'<p>' 'a ba b c ♥♥♥' '</p>'
+		'</section>'
+	'</div>'
+/, 'RT #131400';
 
 =begin pod
 
@@ -1341,7 +1377,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 #	'</div>'
 /, 'complex code block';
 
-#`(
 =begin pod
     this is code
 
@@ -1365,25 +1400,24 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 
 # Note that <li> <code/> </li> is intentional here because of the indent.
 like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<code>' 'this is code' '</code>'
-	'<section>'
-		'<h1>' 'podcast' '</h1>'
-		'<p>' 'this is not' '</p>'
-	'</section>'
-	'<p>' 'this is not code either' '</p>'
-	'<section>'
-		'<h1>' 'itemization' '</h1>'
-		'<p>' 'this is not' '</p>'
-	'</section>'
-	'<section>'
-		'<h1>' 'quitem' '</h1>'
-		'<p>' 'and this is not' '</p>'
-	'</section>'
-	'<ul>'
+	'<div>'
+		'<code>' 'this is code' '</code>'
+		'<section>'
+			'<h1>' 'podcast' '</h1>'
+			'<p>' 'this is not' '</p>'
+		'</section>'
+		'<p>' 'this is not code either' '</p>'
+		'<section>'
+			'<h1>' 'itemization' '</h1>'
+			'<p>' 'this is not' '</p>'
+		'</section>'
+		'<section>'
+			'<h1>' 'quitem' '</h1>'
+			'<p>' 'and this is not' '</p>'
+		'</section>'
 		'<li>' '<code>' 'and this is!' '</code>' '</li>'
-	'</ul>'
+	'</div>'
 /, 'mixed code and one hidden in an item';
-)
 
 =begin code
     foo foo
@@ -1414,7 +1448,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /:s
 	'</div>'
 /, 'paragraph comment';
 
-# from S26
 =comment
 This file is deliberately specified in Perl 6 Pod format
 
@@ -1422,7 +1455,7 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /:s
 	'<!--'
 		'This file is deliberately specified in Perl 6 Pod format'
 	'-->'
-/, 'hanging comment';
+/, 'S26 counterexample - hanging comment';
 
 # this happens to break hilighting in some editors,
 # so I put it at the end
@@ -1442,7 +1475,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /:s
 	'-->'
 /, 'delimited comment';
 
-#`(
 # XXX Those items are :numbered in S26, but we're waiting with block
 # configuration until we're inside Rakudo, otherwise we'll have to
 # pretty much implement Pair parsing in gsocmess only to get rid of
@@ -1470,66 +1502,24 @@ As you can see, folk wisdom is often of dubious value.
 =end pod
 
 like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<p>' 'Let\'s consider two common proverbs:' '</p>'
-	'<ul>'
+	'<div>'
+		'<p>' "Let's consider two common proverbs:" '</p>'
 		'<li>'
-			'<p>'
-				'<i>' 'The rain in Spain falls mainly on the plain.' '</i>'
-			'</p>'
-			'<p>' 'This is a common myth and an unconscionable slur on the Spanish people, the majority of whom are extremely attractive.' '</p>'
+			'<i>' 'The rain in Spain falls mainly on the plain.' '</i>'
+			'This is a common myth and an unconscionable slur on the Spanish people, the majority of whom are extremely attractive.'
 		'</li>'
 		'<li>'
-#			'<p>'
-#				'<i>' 'The early bird gets the worm.' '</i>'
-#			'</p>'
-#			'<p>' 'In deciding whether to become an early riser, it is worth considering whether you would actually enjoy annelids for breakfast.' ''</p>'
-#		'</li>'
-#	'</ul>'
-#	'<p>' 'As you can see, folk wisdom is often of dubious value.' '</p>'
-/;
-)
+			'<i>' 'The early bird gets the worm.' '</i>'
+			'In deciding whether to become an early riser, it is worth considering whether you would actually enjoy annelids for breakfast.'
+		'</li>'
+		'<p>' 'As you can see, folk wisdom is often of dubious value.' '</p>'
+	'</div>'
+/, 'compound mixed content';
 
 # includes tests for fixes for RT bugs:
 #   124403 - incorrect table parse:
-#   128221 - internal error
 #   129862 - uneven rows
 #   132341 - pad rows to add empty cells to ensure all rows have same number of cells
-#   132348 - handle inline Z<> comments on table rows
-
-#`(
-# XXX This bug has moved to NQP.
-# test fix for RT #128221
-#       This test, with a '-r0c0' entry in
-#       the single table row, column 0,
-#       caused an exception.
-=begin table
--r0c0  r0c1
-=end table
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-1
-/;
-)
-
-#`(
-# XXX And this breaks with P6Opaque.
-# an expanded test (per Zoffix) for issue #128221
-# note expected results have been corrected from that time
-=begin table
--Col 1 | -Col 2 | _Col 3 | =Col 4
-=======+========+========+=======
-r0Col 1  | -r0Col 2 | _r0Col 3 | =r0Col 4
--------|--------|--------|-------
-r1Col 1  | -r1Col 2 | _r1Col 3 | =r1Col 4
-r1       |  r1Col 2 | _r1Col 3 | =r1Col 4
--------|--------|--------|-------
-r2Col  1 | r2Col 2  |  r2Col 3 |  r2Col 4
-=end table
-
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-1
-/;
-)
 
 =pod
 B<I am a formatting code>
@@ -1566,16 +1556,19 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /:s
 	'</b>'
 /, 'inline code and references';
 
-#`(
 =pod
 L<C<b>|a>
 L<C<b>|a>
 
-like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /:s
-	'<a href="a">' '<code>' 'b' '</code>' '</a>'
-	'<a href="a">' '<code>' 'b' '</code>' '</a>'
+like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+	'<div>'
+		'<p>'
+			'<a href="a">' '<code>' 'b' '</code>' '</a>'
+			' '
+			'<a href="a">' '<code>' 'b' '</code>' '</a>'
+		'</p>'
+	'</div>'
 /, 'links';
-)
 
 =begin pod
 
@@ -1612,7 +1605,6 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 	'</div>'
 /, 'invisible verbatim';
 
-# RT #114510
 =pod C< infix:<+> >
 =pod C<< infix:<+> >>
 
@@ -1624,105 +1616,91 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 		'</p>'
 	'</div>'
 /, 'inline <>';
-
-=pod C<< infix:<+> >>
-
 like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 	'<div>'
 		'<p>'
 			'<code>' 'infix:<+> ' '</code>'
 		'</p>'
 	'</div>'
-/, 'inline <<>>';
+/, 'RT #114510 inline <<>>';
 
-#`( XXX downstream parsers may want this :allow declaration.
 =begin pod
     =begin code :allow<B>
     =end code
 =end pod
 
-$r = $=pod[$pod-counter];
-
-is $r.contents[0].config<allow>, 'B'; # XXX May not need to test this...
+$root = Pod::To::Tree.to-tree( $=pod[$pod-counter] );
+isa-ok $root, 'Node::Document';
+isa-ok $root.first-child, 'Node::Code';
+is $root.first-child.config.<allow>, 'B';
 like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 	'<div>'
-		'<p>'
-			'<code>' 'infix:<+> ' '</code>'
-		'</p>'
+		'<code>' '</code>'
 	'</div>'
 /, 'code with configuration';
-)
 
-#=begin pod
-#    =config head2  :like<head1> :formatted<I>
-#=end pod
-#
-##die $=pod[$pod-counter].perl;
-#$r = $=pod[$pod-counter];
-#$html = Pod::To::HTMLBody.render( $=pod[$pod-counter++] );
-##die $html;
-##die "[$html]";
-##die $r;
-#
-## XXX may not be appropriate...
-#is $r.contents[0].type, 'head2';
-#is $r.contents[0].config<like>, 'head1';
-#is $r.contents[0].config<formatted>, 'I';
-#ok !$html, 'no actual HTML';
-##like $html, /
-##	''
-##/;
-#
-#=begin pod
-#    =for pod :number(42) :zebras :!sheep :feist<1 2 3 4>
-#=end pod
-#
-##die $=pod[$pod-counter].perl;
-#$r = $=pod[$pod-counter];
-#$html = Pod::To::HTMLBody.render( $=pod[$pod-counter++] );
-##die $html;
-#
-## RT#127085
-#is $r.contents[0].config<number>, 42;
-#is $r.contents[0].config<zebras>, True;
-#is $r.contents[0].config<sheep>, False;
-#ok !$html, 'no HTML, just configuration';
-##like $html, /
-##1
-##/;
-#
-#=begin pod
-#=for DESCRIPTION :title<presentation template>
-#=                :author<John Brown> :pubdate(2011)
-#=end pod
-#
-#$r = $=pod[$pod-counter];
-##die $r;
-#
-## XXX HTML has gone missing...
-#is $r.contents[0].config<title>, 'presentation template';
-#is $r.contents[0].config<author>, 'John Brown';
-#is $r.contents[0].config<pubdate>, 2011;
-#like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-#1
-#/;
-#
-#=begin pod
-#=for table :caption<Table of contents>
-#    foo bar
-#=end pod
-#
-##die $=pod[$pod-counter].perl;
-#$r = $=pod[$pod-counter];
-##die $r;
-#
-## XXX missing HTML here again
-#is $r.contents[0].config<caption>, 'Table of contents';
-#like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-#1
-#/;
+=begin pod
+    =config head2  :like<head1> :formatted<I>
+=end pod
 
-#`(
+$root = Pod::To::Tree.to-tree( $=pod[$pod-counter] );
+isa-ok $root.first-child, 'Node::Config';
+is $root.first-child.type, 'head2';
+todo 'need to test config properly', 2;
+is $root.first-child.config[0],<formatted>, 'I';
+like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+	'<div>'
+	'</div>'
+/, 'bare config node';
+
+=begin pod
+    =for pod :number(42) :zebras :!sheep :feist<1 2 3 4>
+=end pod
+
+$root = Pod::To::Tree.to-tree( $=pod[$pod-counter] );
+todo 'need to test config properly', 2;
+is $root.first-child.config[0],<formatted>, 'I';
+like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+	'<div>'
+	'<div>'
+	'</div>'
+	'</div>'
+/, 'RT #127005';
+
+=begin pod
+=for DESCRIPTION :title<presentation template>
+=                :author<John Brown> :pubdate(2011)
+=end pod
+
+$root = Pod::To::Tree.to-tree( $=pod[$pod-counter] );
+todo 'need to test config properly', 1;
+is $root.first-child.config[0],<formatted>, 'I';
+like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+	'<div>'
+		'<section>'
+			'<h1>' 'DESCRIPTION' '</h1>'
+		'</section>'
+	'</div>'
+/, 'RT #127005';
+
+=begin pod
+=for table :caption<Table of contents>
+    foo bar
+=end pod
+
+$root = Pod::To::Tree.to-tree( $=pod[$pod-counter] );
+todo 'need to test config properly', 1;
+is $root.first-child.config[0],<formatted>, 'I';
+like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
+	'<div>'
+		'<table>'
+			'<tr>'
+				'<td>' 'foo bar' '</td>'
+			'</tr>'
+		'</table>'
+	'</div>'
+/, 'captioned table';
+
 =begin pod
     =begin code :allow<B>
     These words have some B<importance>.
@@ -1734,15 +1712,14 @@ $r = $=pod[$pod-counter];
 #die $r;
 
 like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
-	'<code>'
-		'These words have some'
-		'<b>' 'importance' '</b>'
-		'.'
-	'</code>'
+	'<div>'
+		'<code>'
+			'These words have some '
+			'<b>' 'importance' '</b>'
+			'.' "\n"
+		'</code>'
+	'</div>'
 /, 'Adjective';
-)
-
-#isa-ok $r.contents[0].contents[1], Pod::FormattingCode;
 
 done-testing;
 
