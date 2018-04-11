@@ -22,7 +22,7 @@ Somewhat up in the air at the moment.
 
 use Pod::To::Tree;
 
-class Pod::To::HTMLBody {
+class Pod::To::HTMLBody:ver<0.0.1> {
 	method HTML-start( $node ) {
 		given $node {
 			when Node::Bold { '<b>' }

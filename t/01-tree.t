@@ -409,6 +409,7 @@ Which, as we all know...
 };
 
 subtest 'table', {
+#`(
 =table
 +-----+----+---+
 |   a | b  | c |
@@ -432,7 +433,9 @@ subtest 'table', {
 			'<tr>' '<td>' '+-----+----+---+' '</td>' '</tr>'
 		'</table>'
 	/, 'RT #124403 - incorrect table parse';
+)
 
+#`(
 =begin table
 a | b | c
 l | m | n
@@ -457,7 +460,9 @@ x | y
 			'</tr>'
 		'</table>'
 	/, 'RT #129862 short row';
+)
 
+#`(
 =table
     X   O
    ===========
@@ -483,7 +488,9 @@ x | y
 			'</tr>'
 		'</table>'
 	/, 'RT #132341 rows, also #129862';
+)
 
+#`(
 # XXX The 'Z<..>' aren't being parsed by Perl...
 # also tests fix for RT #129862
 =begin table
@@ -510,6 +517,7 @@ like Pod::To::HTMLBody.render( $=pod[$pod-counter++] ), /
 		'</tr>'
 	'</table>'
 /, 'RT #132348 allow inline Z<> comments';
+)
 
 =begin table
 a
@@ -540,6 +548,7 @@ a
 		'</table>'
 	/, 'single-column table with header';
 
+#`(
 # need to handle table cells with char column separators as data
 # example table from <https://docs.perl6.org/language/regexes>
 # WITHOUT the escaped characters (results in an extra, unwanted, incorrect column)
@@ -585,7 +594,9 @@ a
 			'</tr>'
 		'</table>'
 	/, '#1282 header, entities and gaps';
+)
 
+#`(
 # WITHOUT the escaped characters and without the non-breaking spaces
 # (results in the desired table)
 =begin table
@@ -617,7 +628,9 @@ a
 			'</tr>'
 		'</table>'
 	/, 'escaped characters';
+)
 
+#`(
 # WITH the escaped characters (results in the desired table)
 =begin table
 
@@ -659,7 +672,9 @@ a
 			'</tr>'
 		'</table>'
 	/, 'escaped, and some non-breaking spaces';
+)
 
+#`(
 # WITH the escaped characters but without the non-breaking spaces
 # (results in the desired table)
 
@@ -691,6 +706,7 @@ a
 			'</tr>'
 		'</table>'
 	/, 'escaped, no non-breaking spaces';
+)
 
 =begin table
         The Shoveller   Eddie Stevens     King Arthur's singing shovel
